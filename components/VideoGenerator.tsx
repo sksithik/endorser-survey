@@ -60,6 +60,7 @@ export default function VideoGenerator({ selfieDataUrl, scriptText }: Props){
     img.src = selfieDataUrl || ''
 
     function loop(){
+      if (!ctx) return;
       const t = (performance.now() - t0) / 1000
       // Background
       ctx.fillStyle = '#0c0c10'
