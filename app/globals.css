@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 14 14 16;
+  --card: 24 24 28;
+  --muted: 160 160 180;
+  --ring: 96 165 250;
+}
+
+html, body, #__next { height: 100%; }
+body {
+  @apply bg-[rgb(var(--bg))] text-white antialiased;
+  background: radial-gradient(1200px 600px at 80% -10%, rgba(96,165,250,0.15), transparent 60%),
+              radial-gradient(1000px 500px at 10% 120%, rgba(168,85,247,0.12), transparent 60%),
+              rgb(var(--bg));
+}
+.card {
+  @apply rounded-3xl p-6 md:p-8 bg-[rgb(var(--card))] shadow-xl shadow-black/30 border border-white/5;
+}
+.btn {
+  @apply inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm md:text-base font-semibold transition
+         bg-white text-black hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[rgb(var(--ring))];
+}
+.btn-secondary {
+  @apply bg-transparent text-white/90 border border-white/20 hover:bg-white/10;
+}
+.input {
+  @apply w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 outline-none focus:ring-2 focus:ring-[rgb(var(--ring))];
+}
+.label { @apply text-sm text-white/70 mb-1 block; }
+.step-dot {
+  @apply h-2.5 w-2.5 rounded-full bg-white/20;
+}
+.step-dot.active { @apply bg-white; }
+.sparkle {
+  background: radial-gradient(10px 10px at 50% 50%, rgba(255,255,255,0.8), transparent 60%);
+  filter: blur(1px);
+}
