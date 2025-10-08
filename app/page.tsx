@@ -122,11 +122,17 @@ export default function HomePage(){
                       <div className="text-sm text-red-400">{notesError}</div>
                     )}
                     {!notesLoading && !notesError && (
-                      <pre className="whitespace-pre-wrap text-sm bg-white/5 p-4 rounded-xl border border-white/10">{notes}</pre>
+                      <textarea
+                        value={notes}
+                        onChange={(e)=>setNotes(e.target.value)}
+                        rows={10}
+                        className="w-full text-sm bg-white/5 p-4 rounded-xl border border-white/10 outline-none focus:ring-2 focus:ring-white/20"
+                        placeholder="Your script will appear here. You can edit it before generating the video."
+                      />
                     )}
                   </div>
                   <VideoGenerator selfieDataUrl={selfie} scriptText={notes} />
-                  <VendorAIGenerator />
+                  <VendorAIGenerator selfieDataUrl={selfie} scriptText={notes} />
                 </div>
               </motion.div>
             )}
