@@ -1,22 +1,24 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ProgressDots from '@/components/ProgressDots'
 import QuestionCard from '@/components/QuestionCard'
 import SelfieCapture from '@/components/SelfieCapture'
 import VideoGenerator from '@/components/VideoGenerator'
 import VendorAIGenerator from '@/components/VendorAIGenerator'
-import { pickRandomQuestions } from '@/lib/questions'
 import { generateNotesFromAnswers } from '@/lib/generateNotes'
+import { QUESTION_POOL } from '@/lib/questions'
 
 type QA = { id: string; text: string; answer: string }
 
 export default function HomePage(){
-  const randomQs = useMemo(()=> pickRandomQuestions(5), [])
-  const [qas, setQas] = useState<QA[]>(randomQs.map(q=>({ ...q, answer: '' })))
+  const [qas, setQas] = useState<QA[]>(QUESTION_POOL.map(q=>({ ...q, answer: '' })))
   const [step, setStep] = useState(0) // 0..(qLen-1) = questions, qLen = selfie, qLen+1 = notes/video
   const [selfie, setSelfie] = useState<string>('')
   const totalSteps = qas.length + 2
+  const [notes, setNotes] = useState<string>('')
+  const [notesLoading, setNotesLoading] = useState(false)
+  const [notesError, setNotesError] = useState<string | null>(null)
 
   const canNext = ()=>{
     if(step < qas.length) return qas[step].answer.trim().length > 0
@@ -28,7 +30,20 @@ export default function HomePage(){
   const prev = ()=> setStep(s => Math.max(s-1, 0))
 
   const answersObj = Object.fromEntries(qas.map(q=>[q.id, q.answer]))
-  const notes = useMemo(()=> generateNotesFromAnswers(answersObj), [JSON.stringify(answersObj)])
+
+  // Generate notes via API when entering final step or answers change while on final step
+  useEffect(() => {
+    const onFinal = step === qas.length + 1
+    if (!onFinal) return
+    let canceled = false
+    setNotesLoading(true)
+    setNotesError(null)
+    generateNotesFromAnswers(answersObj)
+      .then(text => { if (!canceled) setNotes(text) })
+      .catch(err => { if (!canceled) setNotesError(err?.message || 'Failed to generate notes') })
+      .finally(() => { if (!canceled) setNotesLoading(false) })
+    return () => { canceled = true }
+  }, [step, qas.length, JSON.stringify(answersObj)])
 
   return (
     <main className="min-h-screen pb-20">
@@ -43,13 +58,14 @@ export default function HomePage(){
       </header>
 
       <section className="max-w-4xl mx-auto px-6 mt-10 md:mt-14">
-        <motion.h1
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-3xl md:text-5xl font-extrabold tracking-tight mb-2"
         >
-          Survey ➜ Selfie ➜ Auto‑Notes ➜ Talking Video
-        </motion.h1>
+          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-2">
+            Survey ➜ Selfie ➜ Auto‑Notes ➜ Talking Video
+          </h1>
+        </motion.div>
         <p className="text-white/70 mb-8">Beautiful, animated, mobile‑first experience. Your data stays in your browser unless you opt into a vendor.</p>
 
         <div className="grid gap-6">
@@ -95,14 +111,23 @@ export default function HomePage(){
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -30, scale: 0.98 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 24 }}
-                className="grid gap-6"
               >
-                <div className="card">
+                <div className="grid gap-6">
+                  <div className="card">
                   <h3 className="text-2xl md:text-3xl font-semibold mb-3">Your Auto‑Generated Notes (Script)</h3>
-                  <pre className="whitespace-pre-wrap text-sm bg-white/5 p-4 rounded-xl border border-white/10">{notes}</pre>
+                    {notesLoading && (
+                      <div className="text-sm text-white/70">Generating notes with AI…</div>
+                    )}
+                    {notesError && (
+                      <div className="text-sm text-red-400">{notesError}</div>
+                    )}
+                    {!notesLoading && !notesError && (
+                      <pre className="whitespace-pre-wrap text-sm bg-white/5 p-4 rounded-xl border border-white/10">{notes}</pre>
+                    )}
+                  </div>
+                  <VideoGenerator selfieDataUrl={selfie} scriptText={notes} />
+                  <VendorAIGenerator />
                 </div>
-                <VideoGenerator selfieDataUrl={selfie} scriptText={notes} />
-                <VendorAIGenerator />
               </motion.div>
             )}
           </AnimatePresence>
