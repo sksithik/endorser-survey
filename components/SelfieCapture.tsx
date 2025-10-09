@@ -1,8 +1,11 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
 
-export default function SelfieCapture({ onCapture }:{ onCapture: (dataUrl: string)=>void }){
+type Props = {
+  onCapture: (dataUrl: string) => void;
+  existingSelfie?: string;
+};
+export default function SelfieCapture({ onCapture, existingSelfie }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [ready, setReady] = useState(false)
