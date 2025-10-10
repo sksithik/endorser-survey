@@ -70,7 +70,7 @@ export default function StepGenerateFromAssets({ notes, selfie, voiceBlobUrl }: 
 
         {!isGenerating && !videoUrl && (
           <button className="btn w-full" onClick={generateSlideshow} disabled={!selfie || !voiceBlobUrl}>
-            Generate MP4 (FFmpeg)
+            Generate MP4
           </button>
         )}
 

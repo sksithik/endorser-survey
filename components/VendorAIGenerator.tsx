@@ -89,7 +89,7 @@ export default function VendorAIGenerator({ selfieDataUrl, scriptText }: Props) 
     <div className="card">
       <h3 className="text-xl font-semibold mb-2">Option C: Generate a Realistic AI Video</h3>
       <p className="text-white/70 mb-4">
-        Use a professional-grade AI model (HeyGen) for realistic lip-syncing. This process requires a configured API key and may take several minutes to complete.
+        Use a professional-grade AI model for realistic lip-syncing. This process requires a configured API key and may take several minutes to complete.
       </p>
       
       <div className="flex flex-wrap gap-4 items-center">
@@ -98,7 +98,7 @@ export default function VendorAIGenerator({ selfieDataUrl, scriptText }: Props) 
           onClick={startGeneration} 
           disabled={isProcessing || !selfieDataUrl || !scriptText}
         >
-          Generate with HeyGen
+          Generate with AI
         </button>
         {isProcessing && (
           <div className="flex items-center gap-2 text-sm text-white/70">
