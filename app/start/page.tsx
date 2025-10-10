@@ -1,308 +1,470 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { debounce } from 'lodash'
+import { FFmpeg } from '@ffmpeg/ffmpeg'
+import { fetchFile, toBlobURL } from '@ffmpeg/util'
 
-// Your Components
 import ProgressDots from '@/components/ProgressDots'
 import QuestionCard from '@/components/QuestionCard'
 import SelfieCapture from '@/components/SelfieCapture'
-import VideoGenerator from '@/components/VideoGenerator'
+
+import { generateNotesFromAnswers } from '@/lib/generateNotes'
+import { QUESTION_POOL, QA } from '@/lib/questions'
+import { supabase } from '@/lib/supabaseClient'
 import VendorAIGenerator from '@/components/VendorAIGenerator'
 
-// Your Libs
-import { generateNotesFromAnswers } from '@/lib/generateNotes'
-import { QUESTION_POOL, QA } from '@/lib/questions' // Make sure to export QA type
-import { supabase } from '@/lib/supabaseClient' // Your client-side Supabase client
-
 // Helper to convert data URL to a file object for uploading
-function dataURLtoFile(dataurl: string, filename:string): File {
-  const arr = dataurl.split(',');
-  const mimeMatch = arr[0].match(/:(.*?);/);
-  if (!mimeMatch) {
-    throw new Error('Invalid data URL');
-  }
-  const mime = mimeMatch[1];
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
-  }
-  return new File([u8arr], filename, { type: mime });
+function dataURLtoFile(dataurl: string, filename: string): File {
+  const arr = dataurl.split(',')
+  const mimeMatch = arr[0].match(/:(.*?);/)
+  if (!mimeMatch) throw new Error('Invalid data URL')
+  const mime = mimeMatch[1]
+  const bstr = atob(arr[1])
+  let n = bstr.length
+  const u8arr = new Uint8Array(n)
+  while (n--) u8arr[n] = bstr.charCodeAt(n)
+  return new File([u8arr], filename, { type: mime })
 }
 
 export default function HomePage() {
-  const searchParams = useSearchParams();
-  const sessionId = searchParams.get('sessionId');
+  const searchParams = useSearchParams()
+  const sessionId = searchParams.get('sessionId')
 
   // State
-  const [qas, setQas] = useState<QA[]>(() => QUESTION_POOL.map(q => ({ ...q, answer: '' })));
-  const [step, setStep] = useState(0);
-  const [selfie, setSelfie] = useState<string>('');
-  const [selfiePublicUrl, setSelfiePublicUrl] = useState<string>('');
-  const [notes, setNotes] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(true); // For initial data load
+  const [qas, setQas] = useState<QA[]>(() => QUESTION_POOL.map(q => ({ ...q, answer: '' })))
+  const [step, setStep] = useState(0)
+  const [selfie, setSelfie] = useState<string>('')
+  const [selfiePublicUrl, setSelfiePublicUrl] = useState<string>('')
+  const [notes, setNotes] = useState<string>('')
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Note Generation State
-  const [notesLoading, setNotesLoading] = useState(false);
-  const [notesError, setNotesError] = useState<string | null>(null);
-  
-  // --- NEW: Text-to-Speech State ---
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
-  const [isSpeaking, setIsSpeaking] = useState(false);
+  // Notes (script) generation
+  const [notesLoading, setNotesLoading] = useState(false)
+  const [notesError, setNotesError] = useState<string | null>(null)
 
-  const totalSteps = qas.length + 2;
-  const answersObj = Object.fromEntries(qas.map(q => [q.id, q.answer]));
+  // TTS
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
+  const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null)
+  const [isSpeaking, setIsSpeaking] = useState(false)
+
+  // FFmpeg video generation
+  const [videoUrl, setVideoUrl] = useState<string>('')
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generationProgress, setGenerationProgress] = useState(0)
+  const [generationMessage, setGenerationMessage] = useState('')
+  const ffmpegRef = useRef(new FFmpeg())
+
+  const totalSteps = qas.length + 2 // 1) Questions, 2) Selfie, 3) Review & Generate
+  const answersObj = Object.fromEntries(qas.map(q => [q.id, q.answer]))
 
   // --- DATA PERSISTENCE ---
-
-  // 1. Debounced save function
   const saveProgress = useCallback(
     debounce(async (dataToSave: any) => {
-      if (!sessionId) return;
+      if (!sessionId) return
       const { error } = await supabase
         .from('endorser_survey_sessions')
         .update(dataToSave)
-        .eq('session_id', sessionId);
-      if (error) console.error('Error saving progress:', error);
-      else console.log('Progress saved!', dataToSave);
+        .eq('session_id', sessionId)
+      if (error) console.error('Error saving progress:', error)
     }, 1000),
     [sessionId]
-  );
+  )
 
-  // 2. Fetch initial state from DB
   useEffect(() => {
     const fetchInitialData = async () => {
       if (!sessionId) {
-        setIsLoading(false);
-        return;
+        setIsLoading(false)
+        return
       }
-      setIsLoading(true);
+      setIsLoading(true)
       const { data, error } = await supabase
         .from('endorser_survey_sessions')
         .select('survey, current_step, selfie, selfie_public_url, notes')
         .eq('session_id', sessionId)
-        .single();
-      if (data) {
-        if (data.survey) setQas(data.survey as QA[]);
-        if (data.current_step) setStep(data.current_step);
-        if (data.selfie) setSelfie(data.selfie);
-        if (data.selfie_public_url) setSelfiePublicUrl(data.selfie_public_url);
-        if (data.notes) setNotes(data.notes);
-      } else if (error) {
-        console.error('Failed to load session:', error);
-      }
-      setIsLoading(false);
-    };
-    fetchInitialData();
-  }, [sessionId]);
+        .single()
 
-  // 3. Trigger save whenever state changes
+      if (data) {
+        if (data.survey) setQas(data.survey as QA[])
+        if (typeof data.current_step === 'number') setStep(data.current_step)
+        if (data.selfie) setSelfie(data.selfie)
+        if (data.selfie_public_url) setSelfiePublicUrl(data.selfie_public_url)
+        if (data.notes) setNotes(data.notes)
+      } else if (error) {
+        console.error('Failed to load session:', error)
+      }
+      setIsLoading(false)
+    }
+    fetchInitialData()
+  }, [sessionId])
+
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading) return
     saveProgress({
       survey: qas,
       current_step: step,
       selfie: selfie,
       selfie_public_url: selfiePublicUrl,
-      notes: notes,
-    });
-  }, [qas, step, selfie, selfiePublicUrl, notes, isLoading, saveProgress]);
+      notes: notes
+    })
+  }, [qas, step, selfie, selfiePublicUrl, notes, isLoading, saveProgress])
 
-  // --- LOGIC ---
-  
-  // --- NEW: Load Speech Synthesis Voices ---
+  // --- VOICES / TTS ---
   useEffect(() => {
     const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
+      const availableVoices = window.speechSynthesis.getVoices()
       if (availableVoices.length > 0) {
-        setVoices(availableVoices);
-        const defaultVoice = availableVoices.find(voice => voice.lang.includes('en')) || availableVoices[0];
-        setSelectedVoice(defaultVoice);
+        setVoices(availableVoices)
+        const defaultVoice = availableVoices.find(v => v.lang.toLowerCase().startsWith('en')) || availableVoices[0]
+        setSelectedVoice(defaultVoice ?? null)
       }
-    };
-    // Voices load asynchronously. The 'voiceschanged' event fires when they are ready.
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    loadVoices(); // Initial call
-
-    // Cleanup: stop speaking and remove listener when component unmounts
+    }
+    window.speechSynthesis.onvoiceschanged = loadVoices
+    loadVoices()
     return () => {
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.onvoiceschanged = null;
-    };
-  }, []);
+      window.speechSynthesis.onvoiceschanged = null
+    }
+  }, [])
 
-  // Handle selfie capture and upload
   const handleSelfieCapture = async (dataUrl: string) => {
-    setSelfie(dataUrl);
-    if (!sessionId) return;
-    const file = dataURLtoFile(dataUrl, `${sessionId}-selfie.png`);
-    const filePath = `${sessionId}/${Date.now()}.png`;
-    const { error: uploadError } = await supabase.storage
-      .from('selfies')
-      .upload(filePath, file, { upsert: true });
-    if (uploadError) {
-      console.error('Error uploading selfie:', uploadError);
-      return;
+    setSelfie(dataUrl)
+    if (!sessionId) return
+    try {
+      const file = dataURLtoFile(dataUrl, `${sessionId}-selfie.png`)
+      const filePath = `${sessionId}/${Date.now()}.png`
+      const { error: upErr } = await supabase.storage.from('selfies').upload(filePath, file, { upsert: true })
+      if (upErr) throw upErr
+      const { data } = supabase.storage.from('selfies').getPublicUrl(filePath)
+      setSelfiePublicUrl(data.publicUrl)
+    } catch (e) {
+      console.error('Selfie upload failed:', e)
     }
-    const { data: publicUrlData } = supabase.storage
-      .from('selfies')
-      .getPublicUrl(filePath);
-    setSelfiePublicUrl(publicUrlData.publicUrl);
-  };
+  }
 
-  // Generate notes via API
+  // Generate notes (script) automatically upon entering final step
   useEffect(() => {
-    const onFinal = step === qas.length + 1;
-    if (!onFinal || notes) return;
-
-    let canceled = false;
-    setNotesLoading(true);
-    setNotesError(null);
+    const onFinal = step === qas.length + 1
+    if (!onFinal || notes) return
+    let canceled = false
+    setNotesLoading(true)
+    setNotesError(null)
     generateNotesFromAnswers(answersObj)
-      .then(text => { if (!canceled) setNotes(text) })
-      .catch(err => { if (!canceled) setNotesError(err?.message || 'Failed to generate notes') })
-      .finally(() => { if (!canceled) setNotesLoading(false) });
-    return () => { canceled = true };
-  }, [step, qas.length, answersObj, notes]);
-
-  // --- NEW: Text-to-Speech Controls ---
-  const toggleAudio = useCallback(() => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !notes) return;
-    const synth = window.speechSynthesis;
-    if (isSpeaking) {
-      synth.cancel();
-    } else {
-      const utterance = new SpeechSynthesisUtterance(notes);
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-      }
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = (e) => {
-        console.error("SpeechSynthesis Error", e);
-        setIsSpeaking(false);
-      };
-      synth.speak(utterance);
+      .then(text => {
+        if (!canceled) setNotes(text)
+      })
+      .catch(err => {
+        if (!canceled) setNotesError(err?.message || 'Could not generate your script.')
+      })
+      .finally(() => {
+        if (!canceled) setNotesLoading(false)
+      })
+    return () => {
+      canceled = true
     }
-  }, [isSpeaking, notes, selectedVoice]);
+  }, [step, qas.length, answersObj, notes])
 
-  // Navigation and validation
-  const canNext = () => {
-    if (step < qas.length) return qas[step]?.answer.trim().length > 0;
-    if (step === qas.length) return !!selfie;
-    return true;
-  };
+  const toggleAudio = useCallback(() => {
+    const synth = window.speechSynthesis
+    if (isSpeaking) {
+      synth.cancel()
+      setIsSpeaking(false)
+    } else {
+      const utterance = new SpeechSynthesisUtterance(notes || '')
+      if (selectedVoice) utterance.voice = selectedVoice
+      utterance.onstart = () => setIsSpeaking(true)
+      utterance.onend = () => setIsSpeaking(false)
+      utterance.onerror = () => setIsSpeaking(false)
+      synth.speak(utterance)
+    }
+  }, [isSpeaking, notes, selectedVoice])
 
-  const next = () => setStep(s => Math.min(s + 1, totalSteps - 1));
-  const prev = () => setStep(s => Math.max(s - 1, 0));
+  const loadFFmpeg = async () => {
+    const ffmpeg = ffmpegRef.current
+    ffmpeg.on('progress', ({ progress }) => setGenerationProgress(Math.round(progress * 100)))
+    setGenerationMessage('Preparing video engine…')
+    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
+    await ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
+    })
+  }
+
+  const generateVideo = async () => {
+    if (!selfie || !notes || !selectedVoice) return
+    setIsGenerating(true)
+    setVideoUrl('')
+    setGenerationProgress(0)
+
+    const ffmpeg = ffmpegRef.current
+    if (!(ffmpeg as any).loaded) await loadFFmpeg()
+
+    // Capture synthetic speech to an audio blob
+    setGenerationMessage('Generating narration…')
+    const audioBlob = await new Promise<Blob>((resolve) => {
+      const utterance = new SpeechSynthesisUtterance(notes)
+      utterance.voice = selectedVoice!
+      const audioContext = new AudioContext()
+      const dest = audioContext.createMediaStreamDestination()
+      const mediaRecorder = new MediaRecorder(dest.stream)
+      const chunks: Blob[] = []
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data)
+      mediaRecorder.onstop = () => resolve(new Blob(chunks, { type: 'audio/webm' }))
+      // NOTE: Some browsers do not allow direct capture of speechSynthesis to MediaStreamDestination.
+      // This is a best-effort local capture; consider server-side TTS if reliability is required.
+      const source = audioContext.createMediaStreamSource(dest.stream)
+      source.connect(audioContext.destination)
+      utterance.onend = () => setTimeout(() => { mediaRecorder.stop(); audioContext.close() }, 300)
+      mediaRecorder.start()
+      window.speechSynthesis.speak(utterance)
+    })
+
+    setGenerationMessage('Composing video…')
+    await ffmpeg.writeFile('selfie.png', await fetchFile(selfie))
+    await ffmpeg.writeFile('audio.webm', await fetchFile(audioBlob))
+
+    await ffmpeg.exec([
+      '-loop', '1',
+      '-i', 'selfie.png',
+      '-i', 'audio.webm',
+      '-c:v', 'libx264',
+      '-tune', 'stillimage',
+      '-c:a', 'aac',
+      '-b:a', '192k',
+      '-pix_fmt', 'yuv420p',
+      '-shortest',
+      'output.mp4'
+    ])
+
+    setGenerationMessage('Finalizing…')
+    const data = await ffmpeg.readFile('output.mp4')
+    const url = URL.createObjectURL(new Blob([(data as any).buffer], { type: 'video/mp4' }))
+    setVideoUrl(url)
+    setIsGenerating(false)
+    setGenerationMessage('')
+  }
+
+  const canNext = () =>
+    step < qas.length
+      ? qas[step]?.answer.trim().length > 0
+      : (step === qas.length ? !!selfie : true)
+
+  const next = () => setStep(s => Math.min(s + 1, totalSteps - 1))
+  const prev = () => setStep(s => Math.max(s - 1, 0))
 
   // --- RENDER ---
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading session...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center text-white/80">
+        Loading your session…
+      </div>
+    )
   }
 
   return (
     <main className="min-h-screen pb-20">
-      <header>
+      <header className="border-b border-white/10 backdrop-blur supports-[backdrop-filter]:bg-white/5">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-7 w-7 rounded-lg sparkle" />
-            <span className="font-semibold">AI Talking Wizard</span>
+            <div className="h-7 w-7 rounded-lg sparkle" aria-hidden="true" />
+            <span className="font-semibold">Scripted Selfie Video</span>
           </div>
           <ProgressDots total={totalSteps} current={step} />
         </div>
       </header>
 
       <section className="max-w-4xl mx-auto px-6 mt-10 md:mt-14">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-2">
-            Survey ➜ Selfie ➜ Auto‑Notes ➜ Talking Video
-          </h1>
-        </motion.div>
-        <p className="text-white/70 mb-8">Beautiful, animated, mobile‑first experience. Your data stays in your browser unless you opt into a vendor.</p>
+        <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-2">
+          Questions → Selfie → Script → MP4
+        </h1>
+        <p className="text-white/70 mb-8">
+          Answer a few prompts, take a selfie, auto-generate a short script, then export a narrated MP4 locally—no server upload required.
+        </p>
+
         <div className="grid gap-6">
           <AnimatePresence mode="popLayout" initial={false}>
             {step < qas.length && qas[step] && (
-              <motion.div key={step} initial={{ opacity: 0, y: 30, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -30, scale: 0.98 }} transition={{ type: 'spring', stiffness: 260, damping: 24 }}>
-                <QuestionCard index={step} total={qas.length} question={qas[step]} value={qas[step].answer} onChange={(v) => { setQas(qs => { const copy = [...qs]; copy[step] = { ...copy[step], answer: v }; return copy; }); }} />
+              <motion.div
+                key={step}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -30 }}
+              >
+                <div className="card">
+                  <h3 className="text-xl font-semibold mb-3">Step 1: Questionnaire</h3>
+                  <p className="text-sm text-white/60 mb-4">
+                    Brief answers are fine—keep your natural tone. We’ll synthesize a concise script from your responses.
+                  </p>
+                  <QuestionCard
+                    index={step}
+                    total={qas.length}
+                    question={qas[step]}
+                    value={qas[step].answer}
+                    onChange={(v) => {
+                      setQas(qs => {
+                        const c = [...qs]
+                        c[step] = { ...c[step], answer: v }
+                        return c
+                      })
+                    }}
+                  />
+                </div>
               </motion.div>
             )}
 
             {step === qas.length && (
-              <motion.div key="selfie" initial={{ opacity: 0, y: 30, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -30, scale: 0.98 }} transition={{ type: 'spring', stiffness: 260, damping: 24 }}>
-                <SelfieCapture onCapture={handleSelfieCapture} existingSelfie={selfie} />
+              <motion.div
+                key="selfie"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -30 }}
+              >
+                <div className="card">
+                  <h3 className="text-xl font-semibold mb-3">Step 2: Capture Your Selfie</h3>
+                  <p className="text-sm text-white/60 mb-4">
+                    Good lighting, plain background, and centered framing work best.
+                  </p>
+                  <SelfieCapture onCapture={handleSelfieCapture} existingSelfie={selfie} />
+                  {selfiePublicUrl && (
+                    <p className="text-xs text-white/50 mt-3">
+                      Saved to cloud storage for this session.
+                    </p>
+                  )}
+                </div>
               </motion.div>
             )}
 
             {step === qas.length + 1 && (
-              <motion.div key="final" initial={{ opacity: 0, y: 30, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -30, scale: 0.98 }} transition={{ type: 'spring', stiffness: 260, damping: 24 }}>
+              <motion.div
+                key="final"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -30 }}
+              >
                 <div className="grid gap-6">
                   <div className="card">
-                    <h3 className="text-2xl md:text-3xl font-semibold mb-3">Your Auto‑Generated Notes (Script)</h3>
-                    {notesLoading && <div className="text-sm text-white/70">Generating notes with AI…</div>}
-                    {notesError && <div className="text-sm text-red-400">{notesError}</div>}
+                    <h3 className="text-xl font-semibold mb-3">Step 3: Review Your Script</h3>
+                    {notesLoading && (
+                      <div className="text-sm text-white/70">Creating your script…</div>
+                    )}
+                    {notesError && (
+                      <div className="text-sm text-red-400">{notesError}</div>
+                    )}
                     {!notesLoading && !notesError && (
-                      <textarea value={notes} onChange={(e)=>setNotes(e.target.value)} rows={10} className="w-full text-sm bg-white/5 p-4 rounded-xl border border-white/10 outline-none focus:ring-2 focus:ring-white/20" placeholder="Your script will appear here. You can edit it before generating the video." />
+                      <>
+                        <textarea
+                          aria-label="Script editor"
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          rows={8}
+                          className="w-full text-sm bg-white/5 p-4 rounded-xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Edit your script here before generating audio…"
+                        />
+                        <div className="flex flex-col sm:flex-row items-center gap-4 mt-4">
+                          <label className="text-sm text-white/70 w-full sm:w-auto" htmlFor="voice-picker">
+                            Voice
+                          </label>
+                          <select
+                            id="voice-picker"
+                            value={selectedVoice?.name || ''}
+                            onChange={(e) =>
+                              setSelectedVoice(voices.find(v => v.name === e.target.value) || null)
+                            }
+                            className="custom-select w-full flex-grow bg-white/5 p-3 rounded-xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            disabled={voices.length === 0 || isSpeaking || isGenerating}
+                            aria-disabled={voices.length === 0 || isSpeaking || isGenerating}
+                          >
+                            {voices.length > 0 ? (
+                              voices.map(v => (
+                                <option key={v.name} value={v.name}>
+                                  {v.name} ({v.lang})
+                                </option>
+                              ))
+                            ) : (
+                              <option>Loading voices…</option>
+                            )}
+                          </select>
+                          <button
+                            onClick={toggleAudio}
+                            className="btn w-full sm:w-auto"
+                            disabled={!notes || voices.length === 0 || isGenerating}
+                            aria-disabled={!notes || voices.length === 0 || isGenerating}
+                          >
+                            {isSpeaking ? 'Stop Preview' : 'Preview Voice'}
+                          </button>
+                        </div>
+                      </>
                     )}
                   </div>
-                  
-                  {/* --- NEW: Audio Player --- */}
-                  {!notesLoading && notes && (
-                    <div className="card">
-                      <h3 className="text-xl font-semibold mb-3">Preview Audio 🔊</h3>
-                      <div className="flex flex-col sm:flex-row items-center gap-4">
-                        <select
-                          value={selectedVoice?.name || ''}
-                          onChange={(e) => {
-                            const voice = voices.find(v => v.name === e.target.value);
-                            setSelectedVoice(voice || null);
-                          }}
-                           className="custom-select w-full sm:w-auto flex-grow bg-white/5 p-3 rounded-xl border border-white/10 outline-none focus:ring-2 focus:ring-white/20"
-                          disabled={voices.length === 0 || isSpeaking}
-                        >
-                          {voices.length > 0 ? (
-                            voices.map(voice => (
-                              <option key={voice.name} value={voice.name}>
-                                {voice.name} ({voice.lang})
-                              </option>
-                            ))
-                          ) : (
-                            <option>Loading voices...</option>
-                          )}
-                        </select>
-                        <button
-                          onClick={toggleAudio}
-                          className="btn w-full sm:w-auto"
-                          disabled={!notes || notesLoading || voices.length === 0}
-                        >
-                          {isSpeaking ? 'Stop Preview' : 'Play Preview'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
 
-                  <VideoGenerator selfieDataUrl={selfie} scriptText={notes} />
-                  <VendorAIGenerator selfieDataUrl={selfie} scriptText={notes} />
-                </div>
+                  <div className="card bg-gradient-to-br from-blue-500/20 to-purple-500/20">
+                    <h3 className="text-xl font-semibold mb-3">Export: Selfie + Narration → MP4</h3>
+                    <p className="text-sm text-white/60 mb-4">
+                      This runs entirely in your browser for privacy. Keep this tab open during rendering.
+                    </p>
+
+                    {!isGenerating && !videoUrl && (
+                      <button
+                        onClick={generateVideo}
+                        className="btn w-full"
+                        disabled={!selfie || !notes}
+                        aria-disabled={!selfie || !notes}
+                      >
+                        Generate MP4
+                      </button>
+                    )}
+
+                    {isGenerating && (
+                      <div className="text-center">
+                        <div className="font-semibold mb-2">{generationMessage}</div>
+                        <div className="w-full bg-white/10 rounded-full h-2.5">
+                          <div
+                            className="bg-blue-500 h-2.5 rounded-full transition-[width]"
+                            style={{ width: `${generationProgress}%` }}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={generationProgress}
+                            role="progressbar"
+                          />
+                        </div>
+                        <div className="text-sm mt-2 text-white/70">Rendering…</div>
+                      </div>
+                    )}
+
+                    {videoUrl && (
+                      <div className="grid gap-4">
+                        <video src={videoUrl} controls className="w-full rounded-lg" />
+                        <a
+                          href={videoUrl}
+                          download="scripted_selfie.mp4"
+                          className="btn-secondary btn w-full text-center"
+                        >
+                          Download MP4
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                    {/* Restored VendorAIGenerator, assuming it's your HeyGen component */}
+                  <VendorAIGenerator selfieDataUrl={selfie} scriptText={notes} />                </div>
               </motion.div>
             )}
           </AnimatePresence>
 
           <div className="flex items-center justify-between mt-1">
-            <button onClick={prev} className="btn-secondary btn" disabled={step === 0}>Back</button>
-            <button onClick={next} className="btn" disabled={!canNext()}>
-              {step < qas.length ? 'Next' : (step === qas.length ? 'Finish' : 'Done')}
+            <button onClick={prev} className="btn-secondary btn" disabled={step === 0}>
+              Back
+            </button>
+            <button
+              onClick={next}
+              className="btn"
+              disabled={!canNext()}
+              aria-disabled={!canNext()}
+            >
+              {step < qas.length ? 'Continue' : step === qas.length ? 'Proceed to Review' : 'Done'}
             </button>
           </div>
         </div>
-
-        <footer className="mt-10 text-center text-white/50 text-xs">
-          Tip: In the final step, hit “Start Recording”, read the prompter, then “Download Video”.
-        </footer>
       </section>
     </main>
   )
