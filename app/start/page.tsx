@@ -342,14 +342,29 @@ export default function HomePage() {
                 exit={{ opacity: 0, y: -30 }}
               >
                 <div className="grid gap-6">
+                  {/* ✅ Selfie Preview Card */}
+                  {selfie && (
+                    <div className="card flex flex-col items-center text-center">
+                      <h3 className="text-xl font-semibold mb-3">Your Selfie Preview</h3>
+                      <p className="text-sm text-white/60 mb-4">
+                        This is the image that will be used for your AI video and slideshow.
+                      </p>
+                      <div className="w-full flex justify-center">
+                        <img
+                          src={selfie}
+                          alt="Captured selfie preview"
+                          className="rounded-xl border border-white/10 max-w-xs w-full object-cover shadow-md"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Script Review */}
                   <div className="card">
                     <h3 className="text-xl font-semibold mb-3">Step 3: Review Your Script</h3>
-                    {notesLoading && (
-                      <div className="text-sm text-white/70">Creating your script…</div>
-                    )}
-                    {notesError && (
-                      <div className="text-sm text-red-400">{notesError}</div>
-                    )}
+                    {notesLoading && <div className="text-sm text-white/70">Creating your script…</div>}
+                    {notesError && <div className="text-sm text-red-400">{notesError}</div>}
+
                     {!notesLoading && !notesError && (
                       <>
                         <textarea
@@ -372,7 +387,6 @@ export default function HomePage() {
                             }
                             className="custom-select w-full flex-grow bg-white/5 p-3 rounded-xl border border-white/10 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             disabled={voices.length === 0 || isSpeaking || isGenerating}
-                            aria-disabled={voices.length === 0 || isSpeaking || isGenerating}
                           >
                             {voices.length > 0 ? (
                               voices.map(v => (
@@ -388,7 +402,6 @@ export default function HomePage() {
                             onClick={toggleAudio}
                             className="btn w-full sm:w-auto"
                             disabled={!notes || voices.length === 0 || isGenerating}
-                            aria-disabled={!notes || voices.length === 0 || isGenerating}
                           >
                             {isSpeaking ? 'Stop Preview' : 'Preview Voice'}
                           </button>
@@ -397,10 +410,11 @@ export default function HomePage() {
                     )}
                   </div>
 
+                  {/* FFmpeg Section */}
                   <div className="card bg-gradient-to-br from-blue-500/20 to-purple-500/20">
                     <h3 className="text-xl font-semibold mb-3">Export: Selfie + Narration → MP4</h3>
                     <p className="text-sm text-white/60 mb-4">
-                      This runs entirely in your browser for privacy. Keep this tab open during rendering.
+                      Runs entirely in your browser — no uploads required. Keep this tab open while it renders.
                     </p>
 
                     {!isGenerating && !videoUrl && (
@@ -408,7 +422,6 @@ export default function HomePage() {
                         onClick={generateVideo}
                         className="btn w-full"
                         disabled={!selfie || !notes}
-                        aria-disabled={!selfie || !notes}
                       >
                         Generate MP4
                       </button>
@@ -421,11 +434,7 @@ export default function HomePage() {
                           <div
                             className="bg-blue-500 h-2.5 rounded-full transition-[width]"
                             style={{ width: `${generationProgress}%` }}
-                            aria-valuemin={0}
-                            aria-valuemax={100}
-                            aria-valuenow={generationProgress}
-                            role="progressbar"
-                          />
+                          ></div>
                         </div>
                         <div className="text-sm mt-2 text-white/70">Rendering…</div>
                       </div>
@@ -445,10 +454,12 @@ export default function HomePage() {
                     )}
                   </div>
 
-                    {/* Restored VendorAIGenerator, assuming it's your HeyGen component */}
-                  <VendorAIGenerator selfieDataUrl={selfie} scriptText={notes} />                </div>
+                  {/* ✅ Vendor Generator (HeyGen only) */}
+                  <VendorAIGenerator selfieDataUrl={selfie} scriptText={notes} />
+                </div>
               </motion.div>
             )}
+
           </AnimatePresence>
 
           <div className="flex items-center justify-between mt-1">
