@@ -125,7 +125,7 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
 
         if (error) {
           console.error('Supabase upload error:', error)
-          alert('Upload failed. Please check the console and your Supabase setup.')
+          alert(`Upload failed. Please check the console and your Supabase setup. ${error.message}`)
           setIsUploading(false)
           return
         }
