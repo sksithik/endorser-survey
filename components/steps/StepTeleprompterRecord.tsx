@@ -42,8 +42,7 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
   const [lineHeight, setLineHeight] = useState(1.5)
   const [overlayOpacity, setOverlayOpacity] = useState(0.85)
   const [windowHeightPct, setWindowHeightPct] = useState(70)
-  // ⬇️ Slower default scrolling on first load
-  const [speedPxPerSec, setSpeedPxPerSec] = useState(60)
+  const [speedPxPerSec, setSpeedPxPerSec] = useState(60) // slower default
 
   // Smooth autoscroll loop
   const rAFRef = useRef<number | null>(null)
@@ -233,15 +232,63 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
 
   return (
     <div className="grid gap-6">
-      <div ref={containerRef} className="card border-white/10">
-        <div className="mx-auto w-full max-w-[1400px]">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h3 className="text-xl font-semibold">Teleprompter & Camera</h3>
-              <p className="text-sm text-white/60">Countdown overlays on video. Recording goes fullscreen automatically.</p>
+      {/* === Top-layer heading outside the box === */}
+      <div className="mx-auto w-full max-w-[1400px]">
+        <h3 className="text-xl font-semibold">Teleprompter & Camera</h3>
+        <p className="text-sm text-white/60">
+          Countdown overlays on video. Recording goes fullscreen automatically.
+        </p>
+      </div>
+
+      {/* === Teleprompter Controls (includes recording + prompter) === */}
+      <div className="mx-auto w-full max-w-[1400px]">
+        <div className="card border-white/10">
+          <div className="flex flex-wrap items-center gap-3 justify-between">
+            {/* Left: recording controls (icon-first, large touch targets) */}
+            <div className="flex items-center gap-3">
+              {!isRecording ? (
+                <button
+                  className="control-btn"
+                  onClick={doCountdownThenRecord}
+                  aria-label="Start recording with countdown"
+                  title="Start"
+                >
+                  <PlayCircle className="h-6 w-6" />
+                </button>
+              ) : (
+                <>
+                  {!isPaused ? (
+                    <button
+                      className="control-btn"
+                      onClick={pauseRecording}
+                      aria-label="Pause recording"
+                      title="Pause"
+                    >
+                      <PauseCircle className="h-6 w-6" />
+                    </button>
+                  ) : (
+                    <button
+                      className="control-btn"
+                      onClick={resumeRecording}
+                      aria-label="Resume recording"
+                      title="Resume"
+                    >
+                      <Play className="h-6 w-6" />
+                    </button>
+                  )}
+                  <button
+                    className="control-btn !bg-red-600/80 hover:!bg-red-600"
+                    onClick={stopRecording}
+                    aria-label="Stop recording"
+                    title="Stop"
+                  >
+                    <Square className="h-6 w-6" />
+                  </button>
+                </>
+              )}
             </div>
 
-            {/* Small settings row (icons + sliders) */}
+            {/* Right: teleprompter settings (icons + sliders) */}
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
@@ -335,11 +382,46 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
                   </div>
                 </>
               )}
+
+              {/* Prompter play/pause/reset */}
+              <div className="h-6 w-px bg-white/20 mx-1" />
+              {!autoScroll ? (
+                <button
+                  className="icon-btn"
+                  onClick={startScroll}
+                  aria-label="Start teleprompter scroll"
+                  title="Scroll"
+                  disabled={isPaused}
+                >
+                  <Play className="h-5 w-5" />
+                </button>
+              ) : (
+                <button
+                  className="icon-btn"
+                  onClick={pauseScroll}
+                  aria-label="Pause teleprompter scroll"
+                  title="Pause Scroll"
+                >
+                  <Pause className="h-5 w-5" />
+                </button>
+              )}
+              <button
+                className="icon-btn"
+                onClick={resetScroll}
+                aria-label="Reset teleprompter position"
+                title="Reset"
+              >
+                <RotateCcw className="h-5 w-5" />
+              </button>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* MAIN AREA */}
-          <div className="relative mt-4 rounded-xl overflow-hidden border border-white/10">
+      {/* === Main video area === */}
+      <div ref={containerRef} className="card border-white/10">
+        <div className="mx-auto w-full max-w-[1400px]">
+          <div className="relative rounded-xl overflow-hidden border border-white/10">
             <div className="aspect-video bg-black/50 relative">
               <video
                 ref={videoRef}
@@ -348,83 +430,7 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
                 playsInline
               />
 
-              {/* Floating Controls (mobile-friendly) */}
-              <div className="absolute inset-x-0 bottom-3 flex items-center justify-center">
-                <div className="flex gap-4 bg-black/30 backdrop-blur px-4 py-2 rounded-full border border-white/10">
-                  {!isRecording ? (
-                    <button
-                      className="fab-btn"
-                      onClick={doCountdownThenRecord}
-                      aria-label="Start recording with countdown"
-                      title="Start"
-                    >
-                      <PlayCircle className="h-7 w-7" />
-                    </button>
-                  ) : (
-                    <>
-                      {!isPaused ? (
-                        <button
-                          className="fab-btn"
-                          onClick={pauseRecording}
-                          aria-label="Pause recording"
-                          title="Pause"
-                        >
-                          <PauseCircle className="h-7 w-7" />
-                        </button>
-                      ) : (
-                        <button
-                          className="fab-btn"
-                          onClick={resumeRecording}
-                          aria-label="Resume recording"
-                          title="Resume"
-                        >
-                          <Play className="h-7 w-7" />
-                        </button>
-                      )}
-                      <button
-                        className="fab-btn !bg-red-600/80 hover:!bg-red-600"
-                        onClick={stopRecording}
-                        aria-label="Stop recording"
-                        title="Stop"
-                      >
-                        <Square className="h-7 w-7" />
-                      </button>
-                    </>
-                  )}
-
-                  {/* Teleprompter control icons */}
-                  {!autoScroll ? (
-                    <button
-                      className="fab-btn"
-                      onClick={startScroll}
-                      aria-label="Start teleprompter scroll"
-                      title="Scroll"
-                      disabled={isPaused}
-                    >
-                      <Play className="h-6 w-6" />
-                    </button>
-                  ) : (
-                    <button
-                      className="fab-btn"
-                      onClick={pauseScroll}
-                      aria-label="Pause teleprompter scroll"
-                      title="Pause Scroll"
-                    >
-                      <Pause className="h-6 w-6" />
-                    </button>
-                  )}
-                  <button
-                    className="fab-btn"
-                    onClick={resetScroll}
-                    aria-label="Reset teleprompter position"
-                    title="Reset"
-                  >
-                    <RotateCcw className="h-6 w-6" />
-                  </button>
-                </div>
-              </div>
-
-              {/* COUNTDOWN overlay */}
+              {/* COUNTDOWN overlay on video */}
               {countdown !== null && countdown > 0 && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-[20vw] md:text-[12vw] font-extrabold drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
@@ -445,7 +451,6 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
                       {/* gradient fades */}
                       <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-black/60 to-transparent" />
                       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/60 to-transparent" />
-
                       <div
                         className={`text-white whitespace-pre-wrap px-4 py-5 ${mirror ? 'scale-x-[-1]' : ''}`}
                         style={{ lineHeight }}
@@ -460,46 +465,12 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
             </div>
           </div>
 
-          {/* Desktop auxiliary controls (optional; icons only above are primary) */}
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            {!isRecording ? (
-              <button className="btn" onClick={doCountdownThenRecord}>
-                <PlayCircle className="h-5 w-5 mr-2" /> Start (3-2-1)
-              </button>
-            ) : (
-              <>
-                {!isPaused ? (
-                  <button className="btn-secondary btn" onClick={pauseRecording}>
-                    <PauseCircle className="h-5 w-5 mr-2" /> Pause
-                  </button>
-                ) : (
-                  <button className="btn" onClick={resumeRecording}>
-                    <Play className="h-5 w-5 mr-2" /> Resume
-                  </button>
-                )}
-                <button className="btn-secondary btn" onClick={stopRecording}>
-                  <Square className="h-5 w-5 mr-2" /> Stop
-                </button>
-              </>
-            )}
-            <div className="h-6 w-px bg-white/20 mx-1" />
-            {!autoScroll ? (
-              <button className="btn-secondary btn" onClick={startScroll} disabled={isPaused}>
-                <Play className="h-4 w-4 mr-2" /> Scroll
-              </button>
-            ) : (
-              <button className="btn-secondary btn" onClick={pauseScroll}>
-                <Pause className="h-4 w-4 mr-2" /> Pause Scroll
-              </button>
-            )}
-            <button className="btn-secondary btn" onClick={resetScroll}>
-              <RotateCcw className="h-4 w-4 mr-2" /> Reset
-            </button>
-          </div>
+          {/* Optional desktop helper row (kept minimal since controls moved up) */}
+          <div className="sr-only">Recording and teleprompter controls are located above.</div>
         </div>
       </div>
 
-      {/* OUTPUT */}
+      {/* === Output === */}
       {videoBlobUrl && (
         <div className="card">
           <div className="mx-auto w-full max-w-[1400px]">
@@ -526,17 +497,18 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
           border: 1px solid rgba(255,255,255,0.12);
         }
         .icon-btn:hover { background: rgba(255,255,255,0.1); }
-        .fab-btn {
+
+        .control-btn {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          height: 46px;
-          width: 46px;
+          height: 44px;
+          width: 44px;
           border-radius: 9999px;
           background: rgba(59,130,246,0.85); /* blue-500/85 */
           border: 1px solid rgba(255,255,255,0.2);
         }
-        .fab-btn:hover { background: rgba(59,130,246,1); }
+        .control-btn:hover { background: rgba(59,130,246,1); }
       `}</style>
     </div>
   )
