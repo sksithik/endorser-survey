@@ -7,10 +7,10 @@ import VendorAIGenerator from '@/components/VendorAIGenerator'
 type Props = {
   notes: string
   selfie: string
-  voiceBlobUrl: string
+  voicePublicUrl: string
 }
 
-export default function StepGenerateFromAssets({ notes, selfie, voiceBlobUrl }: Props) {
+export default function StepGenerateFromAssets({ notes, selfie, voicePublicUrl }: Props) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [progress, setProgress] = useState(0)
   const [message, setMessage] = useState('')
@@ -29,7 +29,7 @@ export default function StepGenerateFromAssets({ notes, selfie, voiceBlobUrl }: 
   }
 
   const generateSlideshow = async () => {
-    if (!selfie || !voiceBlobUrl) return
+    if (!selfie || !voicePublicUrl) return
     setIsGenerating(true)
     setVideoUrl('')
     setProgress(0)
@@ -40,7 +40,7 @@ export default function StepGenerateFromAssets({ notes, selfie, voiceBlobUrl }: 
 
     setMessage('Composing video…')
     await ffmpeg.writeFile('selfie.png', await fetchFile(selfie))
-    await ffmpeg.writeFile('audio.webm', await fetchFile(voiceBlobUrl))
+    await ffmpeg.writeFile('audio.webm', await fetchFile(voicePublicUrl))
     await ffmpeg.exec([
       '-loop', '1',
       '-i', 'selfie.png',
@@ -69,7 +69,7 @@ export default function StepGenerateFromAssets({ notes, selfie, voiceBlobUrl }: 
         <p className="text-sm text-white/60 mb-4">Renders locally in your browser. Keep this tab open during export.</p>
 
         {!isGenerating && !videoUrl && (
-          <button className="btn w-full" onClick={generateSlideshow} disabled={!selfie || !voiceBlobUrl}>
+          <button className="btn w-full" onClick={generateSlideshow} disabled={!selfie || !voicePublicUrl}>
             Generate MP4
           </button>
         )}
