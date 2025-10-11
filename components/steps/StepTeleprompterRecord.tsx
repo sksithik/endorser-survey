@@ -125,7 +125,6 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
   const doCountdownThenRecord = async () => {
     setVideoBlobUrl('')
     resetScroll()
-    // Fullscreen logic removed
     setCountdown(3)
     let n = 3
     const timer = setInterval(() => {
@@ -156,7 +155,6 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
         setVideoBlobUrl(URL.createObjectURL(blob))
         setIsRecording(false)
         setIsPaused(false)
-        // Fullscreen logic removed
       }
 
       rec.start()
@@ -203,7 +201,8 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
       <div className="card border-white/10 p-0">
         <div className="mx-auto w-full max-w-[1400px]">
           <div className="relative rounded-xl overflow-hidden border border-white/10">
-            <div className="aspect-video bg-black/50 relative">
+            {/* === CHANGED LINE === */}
+            <div className="aspect-[9/16] md:aspect-video bg-black/50 relative">
               <video
                 ref={videoRef}
                 className={`w-full h-full object-cover ${mirror ? 'scale-x-[-1]' : ''}`}
@@ -211,7 +210,7 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
                 playsInline
               />
 
-              {/* === NEW: Recording Indicator === */}
+              {/* === Recording Indicator === */}
               {isRecording && !isPaused && (
                  <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-lg text-sm font-semibold recording-indicator z-10">
                   <div className="h-3 w-3 bg-red-500 rounded-full" />
@@ -251,7 +250,7 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
                 </div>
               )}
 
-              {/* === NEW: Unified Control Bar === */}
+              {/* === Unified Control Bar === */}
               <div className="absolute bottom-0 inset-x-0 bg-black/40 backdrop-blur-sm p-3 z-20">
                 <div className="flex items-center justify-between gap-4 w-full max-w-6xl mx-auto">
                   {/* Left Controls: Prompter Settings */}
