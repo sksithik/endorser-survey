@@ -8,11 +8,11 @@ import {
   Pause,
   RotateCcw,
   Type,
-  PanelBottom,
   FlipHorizontal,
   Gauge,
   PanelsTopLeft
 } from 'lucide-react'
+import { supabase } from '@/lib/supabaseClient'
 
 type Props = {
   notes: string
@@ -29,21 +29,20 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<BlobPart[]>([])
 
-  // Recording state
+  // State
   const [isRecording, setIsRecording] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [countdown, setCountdown] = useState<number | null>(null)
+  const [isUploading, setIsUploading] = useState(false) // New uploading state
 
   // Teleprompter opts
   const [overlayMode, setOverlayMode] = useState(true)
   const [mirror, setMirror] = useState(false)
   const [fontSize, setFontSize] = useState(28)
   const [lineHeight, setLineHeight] = useState(1.5)
-  const [overlayOpacity, setOverlayOpacity] = useState(0.85)
-  const [windowHeightPct, setWindowHeightPct] = useState(70)
   const [speedPxPerSec, setSpeedPxPerSec] = useState(60)
 
-  // Smooth autoscroll loop
+  // Autoscroll
   const rAFRef = useRef<number | null>(null)
   const lastTsRef = useRef<number | null>(null)
   const [autoScroll, setAutoScroll] = useState(false)
@@ -58,9 +57,7 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
           videoRef.current.srcObject = s
           await videoRef.current.play().catch(() => {})
         }
-      } catch (e) {
-        console.error('getUserMedia failed:', e)
-      }
+      } catch (e) { console.error('getUserMedia failed:', e) }
     }
     setup()
     return () => {
@@ -70,58 +67,32 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-
   // ====== Teleprompter smooth scroll ======
   const scrollLoop = useCallback((ts: number) => {
-    if (!autoScroll || !promptScrollRef.current) {
-      rAFRef.current = null
-      lastTsRef.current = null
-      return
-    }
+    if (!autoScroll || !promptScrollRef.current) { rAFRef.current = null; lastTsRef.current = null; return; }
     if (lastTsRef.current == null) lastTsRef.current = ts
     const dt = (ts - lastTsRef.current) / 1000
     lastTsRef.current = ts
-
     const el = promptScrollRef.current
     const delta = speedPxPerSec * dt
     const maxScroll = el.scrollHeight - el.clientHeight
     const next = Math.min(maxScroll, el.scrollTop + delta)
     el.scrollTop = next
-
-    if (next >= maxScroll - 1) {
-      setAutoScroll(false)
-      rAFRef.current = null
-      lastTsRef.current = null
-      return
-    }
+    if (next >= maxScroll - 1) { setAutoScroll(false); rAFRef.current = null; lastTsRef.current = null; return; }
     rAFRef.current = requestAnimationFrame(scrollLoop)
   }, [autoScroll, speedPxPerSec])
 
   useEffect(() => {
-    if (autoScroll && rAFRef.current == null) {
-      rAFRef.current = requestAnimationFrame(scrollLoop)
-    }
-    return () => {
-      if (rAFRef.current) cancelAnimationFrame(rAFRef.current)
-      rAFRef.current = null
-      lastTsRef.current = null
-    }
+    if (autoScroll && rAFRef.current == null) { rAFRef.current = requestAnimationFrame(scrollLoop) }
+    return () => { if (rAFRef.current) cancelAnimationFrame(rAFRef.current); rAFRef.current = null; lastTsRef.current = null; }
   }, [autoScroll, scrollLoop])
 
   const startScroll = () => setAutoScroll(true)
   const pauseScroll = () => setAutoScroll(false)
-  const resetScroll = () => {
-    setAutoScroll(false)
-    if (promptScrollRef.current) promptScrollRef.current.scrollTop = 0
-  }
-  const cancelScroll = () => {
-    setAutoScroll(false)
-    if (rAFRef.current) cancelAnimationFrame(rAFRef.current)
-    rAFRef.current = null
-    lastTsRef.current = null
-  }
+  const resetScroll = () => { setAutoScroll(false); if (promptScrollRef.current) promptScrollRef.current.scrollTop = 0; }
+  const cancelScroll = () => { setAutoScroll(false); if (rAFRef.current) cancelAnimationFrame(rAFRef.current); rAFRef.current = null; lastTsRef.current = null; }
 
-  // ====== Recording ======
+  // ====== Recording Logic ======
   const doCountdownThenRecord = async () => {
     setVideoBlobUrl('')
     resetScroll()
@@ -130,11 +101,7 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
     const timer = setInterval(() => {
       n -= 1
       setCountdown(n)
-      if (n === 0) {
-        clearInterval(timer)
-        setCountdown(null)
-        startRecording()
-      }
+      if (n === 0) { clearInterval(timer); setCountdown(null); startRecording(); }
     }, 1000)
   }
 
@@ -144,52 +111,59 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
       chunksRef.current = []
       const rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9,opus' })
       recorderRef.current = rec
+      
+      // === UPLOAD LOGIC IS HERE ===
+      rec.onstop = async () => {
+        pauseScroll()
+        setIsUploading(true)
+        const videoBlob = new Blob(chunksRef.current, { type: 'video/webm' })
+        const fileName = `recording-${Date.now()}.webm`
+        
+        const { error } = await supabase.storage
+          .from('recordings') // Your bucket name
+          .upload(fileName, videoBlob);
+
+        if (error) {
+          console.error('Supabase upload error:', error)
+          alert('Upload failed. Please check the console and your Supabase setup.')
+          setIsUploading(false)
+          return
+        }
+
+        const { data } = supabase.storage
+          .from('recordings')
+          .getPublicUrl(fileName)
+
+        if (data.publicUrl) {
+          setVideoBlobUrl(data.publicUrl)
+        } else {
+            console.error('Could not get public URL for the video');
+            alert('Upload succeeded, but could not get the public URL.');
+        }
+
+        setIsUploading(false)
+      }
+
+      rec.ondataavailable = (e) => { if (e.data?.size) chunksRef.current.push(e.data) }
+      
+      rec.start()
       setIsRecording(true)
       setIsPaused(false)
       startScroll()
-
-      rec.ondataavailable = (e) => { if (e.data?.size) chunksRef.current.push(e.data) }
-      rec.onstop = async () => {
-        pauseScroll()
-        const blob = new Blob(chunksRef.current, { type: 'video/webm' })
-        setVideoBlobUrl(URL.createObjectURL(blob))
-        setIsRecording(false)
-        setIsPaused(false)
-      }
-
-      rec.start()
-    } catch (e) {
-      console.error('record start failed:', e)
-    }
+    } catch (e) { console.error('record start failed:', e) }
   }
 
-  const pauseRecording = () => {
-    recorderRef.current?.pause()
-    setIsPaused(true)
-    pauseScroll()
-  }
+  const pauseRecording = () => { recorderRef.current?.pause(); setIsPaused(true); pauseScroll(); }
+  const resumeRecording = () => { recorderRef.current?.resume(); setIsPaused(false); startScroll(); }
+  const stopRecording = () => { recorderRef.current?.stop(); setIsRecording(false); setIsPaused(false); }
 
-  const resumeRecording = () => {
-    recorderRef.current?.resume()
-    setIsPaused(false)
-    startScroll()
-  }
-
-  const stopRecording = () => {
-    recorderRef.current?.stop()
-  }
-
-  // ====== Derived styles ======
   const overlayPanelStyle = useMemo(() => ({
-    fontSize: `${fontSize}px`,
-    lineHeight,
-    backgroundColor: `rgba(0,0,0,${overlayOpacity})`,
-    height: `${windowHeightPct}vh`,
-    maxHeight: '100%',
-  }), [fontSize, lineHeight, overlayOpacity, windowHeightPct])
+    fontSize: `${fontSize}px`, lineHeight,
+  }), [fontSize, lineHeight]);
 
   return (
     <div className="grid gap-6">
+      {/* ... Header section (unchanged) ... */}
       <div className="mx-auto w-full max-w-[1400px]">
         <h3 className="text-xl font-semibold">Teleprompter & Camera</h3>
         <p className="text-sm text-white/60">
@@ -201,7 +175,6 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
       <div className="card border-white/10 p-0">
         <div className="mx-auto w-full max-w-[1400px]">
           <div className="relative rounded-xl overflow-hidden border border-white/10">
-            {/* === CHANGED LINE === */}
             <div className="aspect-[9/16] md:aspect-video bg-black/50 relative">
               <video
                 ref={videoRef}
@@ -210,7 +183,6 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
                 playsInline
               />
 
-              {/* === Recording Indicator === */}
               {isRecording && !isPaused && (
                  <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 text-white px-3 py-1.5 rounded-lg text-sm font-semibold recording-indicator z-10">
                   <div className="h-3 w-3 bg-red-500 rounded-full" />
@@ -218,7 +190,6 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
                 </div>
               )}
 
-              {/* COUNTDOWN overlay on video */}
               {countdown !== null && countdown > 0 && (
                 <div className="absolute inset-0 flex items-center justify-center z-10">
                   <div className="text-[20vw] md:text-[12vw] font-extrabold drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
@@ -227,21 +198,13 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
                 </div>
               )}
 
-              {/* TELEPROMPTER overlay */}
               {overlayMode && (
                 <div className="absolute inset-x-0 bottom-0 flex items-end justify-center pointer-events-none">
                   <div className="w-full md:w-[80%] lg:w-[70%] px-4 md:px-8 pb-4">
-                    <div
-                      ref={promptScrollRef}
-                      className="w-full overflow-y-hidden rounded-xl relative"
-                      style={overlayPanelStyle}
-                    >
-                      <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-black/60 to-transparent" />
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/60 to-transparent" />
-                      <div
-                        className={`text-white whitespace-pre-wrap px-4 py-5 ${mirror ? 'scale-x-[-1]' : ''}`}
-                        style={{ lineHeight }}
-                      >
+                    <div ref={promptScrollRef} className="w-full overflow-y-hidden rounded-xl relative bg-black/80" style={{ height: '70vh', maxHeight: '100%' }}>
+                      <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-black/80 to-transparent" />
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/80 to-transparent" />
+                      <div className={`text-white whitespace-pre-wrap px-4 py-5 ${mirror ? 'scale-x-[-1]' : ''}`} style={overlayPanelStyle}>
                         {notes || 'No script available.'}
                       </div>
                       <div className="h-24" />
@@ -250,66 +213,25 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
                 </div>
               )}
 
-              {/* === Unified Control Bar === */}
+              {/* === Unified Control Bar (unchanged) === */}
               <div className="absolute bottom-0 inset-x-0 bg-black/40 backdrop-blur-sm p-3 z-20">
                 <div className="flex items-center justify-between gap-4 w-full max-w-6xl mx-auto">
-                  {/* Left Controls: Prompter Settings */}
-                  <div className="flex flex-wrap items-center gap-3">
-                     <button type="button" className="icon-btn" title="Toggle overlay mode" onClick={() => setOverlayMode(v => !v)}>
-                      <PanelsTopLeft className="h-5 w-5" />
-                    </button>
-                    <button type="button" className="icon-btn" title="Mirror video & text" onClick={() => setMirror(v => !v)}>
-                      <FlipHorizontal className="h-5 w-5" />
-                    </button>
-                    <div className="hidden md:flex items-center gap-2">
-                        <Gauge className="h-4 w-4 opacity-70" />
-                        <input type="range" min={10} max={200} step={5} value={speedPxPerSec} onChange={(e)=>setSpeedPxPerSec(parseInt(e.target.value))} className="w-24" title="Scroll speed" />
+                    {/* Left Controls */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        <button type="button" className="icon-btn" title="Toggle overlay" onClick={() => setOverlayMode(v => !v)}><PanelsTopLeft className="h-5 w-5" /></button>
+                        <button type="button" className="icon-btn" title="Mirror video" onClick={() => setMirror(v => !v)}><FlipHorizontal className="h-5 w-5" /></button>
+                        <div className="hidden md:flex items-center gap-2"><Gauge className="h-4 w-4 opacity-70" /><input type="range" min={10} max={200} step={5} value={speedPxPerSec} onChange={(e)=>setSpeedPxPerSec(parseInt(e.target.value))} className="w-24" title="Scroll speed" /></div>
+                        <div className="hidden md:flex items-center gap-2"><Type className="h-4 w-4 opacity-70" /><input type="range" min={18} max={48} step={1} value={fontSize} onChange={(e)=>setFontSize(parseInt(e.target.value))} className="w-24" title="Font size" /></div>
                     </div>
-                     <div className="hidden md:flex items-center gap-2">
-                        <Type className="h-4 w-4 opacity-70" />
-                        <input type="range" min={18} max={48} step={1} value={fontSize} onChange={(e)=>setFontSize(parseInt(e.target.value))} className="w-24" title="Font size" />
+                    {/* Center Controls */}
+                    <div className="flex items-center gap-3">
+                        {!isRecording ? (<button className="control-btn-main" onClick={doCountdownThenRecord} title="Start Recording"><PlayCircle className="h-7 w-7" /></button>) : (<>{!isPaused ? (<button className="control-btn-main" onClick={pauseRecording} title="Pause"><PauseCircle className="h-7 w-7" /></button>) : (<button className="control-btn-main" onClick={resumeRecording} title="Resume"><Play className="h-7 w-7" /></button>)}<button className="control-btn-stop" onClick={stopRecording} title="Stop Recording"><Square className="h-7 w-7" /></button></>)}
                     </div>
-                  </div>
-
-                  {/* Center Controls: Recording */}
-                  <div className="flex items-center gap-3">
-                    {!isRecording ? (
-                        <button className="control-btn-main" onClick={doCountdownThenRecord} title="Start Recording">
-                          <PlayCircle className="h-7 w-7" />
-                        </button>
-                      ) : (
-                        <>
-                          {!isPaused ? (
-                            <button className="control-btn-main" onClick={pauseRecording} title="Pause">
-                              <PauseCircle className="h-7 w-7" />
-                            </button>
-                          ) : (
-                            <button className="control-btn-main" onClick={resumeRecording} title="Resume">
-                              <Play className="h-7 w-7" />
-                            </button>
-                          )}
-                          <button className="control-btn-stop" onClick={stopRecording} title="Stop Recording">
-                            <Square className="h-7 w-7" />
-                          </button>
-                        </>
-                      )}
-                  </div>
-                  
-                  {/* Right Controls: Prompter Actions */}
-                  <div className="flex items-center gap-3">
-                      {!autoScroll ? (
-                        <button className="icon-btn" onClick={startScroll} title="Start Scroll" disabled={isPaused}>
-                          <Play className="h-5 w-5" />
-                        </button>
-                      ) : (
-                        <button className="icon-btn" onClick={pauseScroll} title="Pause Scroll">
-                          <Pause className="h-5 w-5" />
-                        </button>
-                      )}
-                      <button className="icon-btn" onClick={resetScroll} title="Reset Scroll">
-                        <RotateCcw className="h-5 w-5" />
-                      </button>
-                  </div>
+                    {/* Right Controls */}
+                    <div className="flex items-center gap-3">
+                        {!autoScroll ? (<button className="icon-btn" onClick={startScroll} title="Start Scroll" disabled={isPaused}><Play className="h-5 w-5" /></button>) : (<button className="icon-btn" onClick={pauseScroll} title="Pause Scroll"><Pause className="h-5 w-5" /></button>)}
+                        <button className="icon-btn" onClick={resetScroll} title="Reset Scroll"><RotateCcw className="h-5 w-5" /></button>
+                    </div>
                 </div>
               </div>
             </div>
@@ -317,21 +239,30 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
         </div>
       </div>
 
-      {/* === Output === */}
-      {videoBlobUrl && (
+      {/* === NEW: Output section with Uploading State === */}
+      {(isUploading || videoBlobUrl) && (
         <div className="card">
           <div className="mx-auto w-full max-w-[1400px]">
-            <h3 className="text-xl font-semibold mb-3">Your Recording</h3>
-            <video src={videoBlobUrl} controls className="w-full rounded-lg" />
-            <div className="mt-2 flex gap-3">
-              <a className="btn" href={videoBlobUrl} download="teleprompter_recording.webm">Download</a>
-              <button className="btn-secondary btn" onClick={() => setVideoBlobUrl('')}>Re-record</button>
-            </div>
+            {isUploading ? (
+              <div className="text-center py-8">
+                <h3 className="text-xl font-semibold mb-3">Uploading your video...</h3>
+                <p className="text-white/60">Please wait, this may take a moment.</p>
+              </div>
+            ) : (
+              <div>
+                <h3 className="text-xl font-semibold mb-3">Your Recording</h3>
+                <video src={videoBlobUrl} controls className="w-full rounded-lg" />
+                <div className="mt-2 flex gap-3">
+                  <a className="btn" href={videoBlobUrl} download={`recording-${Date.now()}.webm`}>Download</a>
+                  <button className="btn-secondary btn" onClick={() => setVideoBlobUrl('')}>Re-record</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Local styles */}
+      {/* Local styles (unchanged) */}
       <style jsx>{`
         .icon-btn {
           display: inline-flex; align-items: center; justify-content: center;
