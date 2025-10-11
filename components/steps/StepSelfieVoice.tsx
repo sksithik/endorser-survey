@@ -255,7 +255,26 @@ export default function StepSelfieVoice({
 
   return (
     <div className="grid gap-6">
-      {/* ... Notes and Selfie sections (unchanged) ... */}
+      <div className="card">
+        <h3 className="text-xl font-semibold mb-3">Script (for reference)</h3>
+        <p className="text-sm text-white/60 mb-3">Record your voice reading this script. Keep sentences short and natural.</p>
+        <div className="text-sm bg-white/5 p-4 rounded-xl border border-white/10 whitespace-pre-wrap">
+          {notes || 'No notes yet.'}
+        </div>
+      </div>
+
+      {/* Selfie capture */}
+      <div className="card">
+        <h3 className="text-xl font-semibold mb-3">Capture Your Selfie</h3>
+        <p className="text-sm text-white/60 mb-4">Good lighting, plain background, centered framing.</p>
+        <SelfieCapture onCapture={handleSelfieCapture} existingSelfie={selfie} />
+        {selfie && (
+          <div className="mt-3">
+            <img src={selfie} alt="Selfie preview" className="rounded-lg border border-white/10 max-w-xs" />
+          </div>
+        )}
+        {selfiePublicUrl && <p className="text-xs text-white/50 mt-2">Saved to cloud for this session.</p>}
+      </div>
 
       {/* Audio recorder with re-record & takes */}
       <div className="card">
