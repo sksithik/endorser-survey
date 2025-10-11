@@ -157,7 +157,7 @@ export default function HomePage() {
         <div className="grid gap-6">
           {/* Questionnaire (multi) */}
           {step < qas.length && (
-            <div className="w-full max-w-2xl mx-auto">
+            <div className="w-full max-w-2xl mx-auto overflow-x-auto">
               <StepQuestionnaire
                 q={qas[step]}
                 index={step}
@@ -171,7 +171,7 @@ export default function HomePage() {
 
           {/* Mode + Notes */}
           {step === qas.length && (
-            <div className="w-full max-w-2xl mx-auto">
+            <div className="w-full max-w-2xl mx-auto overflow-x-auto">
               <StepModeAndNotes
                 notes={notes}
                 setNotes={setNotes}
@@ -183,7 +183,7 @@ export default function HomePage() {
 
           {/* Path A: Selfie + Voice (collect assets) */}
           {mode === 'selfie_voice' && step === qas.length + 1 && (
-            <div className="w-full max-w-2xl mx-auto">
+            <div className="w-full max-w-2xl mx-auto overflow-x-auto">
               <StepSelfieVoice
                 notes={notes}
                 selfie={selfie}
@@ -199,7 +199,7 @@ export default function HomePage() {
 
           {/* Path A Output: FFmpeg slideshow + HeyGen */}
           {mode === 'selfie_voice' && step === qas.length + 2 && (
-            <div className="w-full max-w-2xl mx-auto">
+            <div className="w-full max-w-2xl mx-auto overflow-x-auto">
               <StepGenerateFromAssets
                 notes={notes}
                 selfie={selfie}
@@ -210,7 +210,7 @@ export default function HomePage() {
 
           {/* Path B: Teleprompter recorder */}
           {mode === 'teleprompter_video' && step === qas.length + 1 && (
-            <div className="w-full max-w-2xl mx-auto">
+            <div className="w-full max-w-2xl mx-auto overflow-x-auto">
               <StepTeleprompterRecord
                 notes={notes}
                 videoBlobUrl={videoBlobUrl}
