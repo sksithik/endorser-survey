@@ -120,7 +120,7 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
         const fileName = `recording-${Date.now()}.webm`
         
         const { error } = await supabase.storage
-          .from('quetes-bucket') // Your bucket name
+          .from('quotes-bucket') // Your bucket name
           .upload(`recordings/${fileName}`, videoBlob);
 
         if (error) {
@@ -131,7 +131,7 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
         }
 
         const { data } = supabase.storage
-          .from('quetes-bucket')
+          .from('quotes-bucket')
           .getPublicUrl(`recordings/${fileName}`)
 
         if (data.publicUrl) {
