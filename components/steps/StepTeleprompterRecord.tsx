@@ -1,5 +1,18 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  PlayCircle,
+  PauseCircle,
+  Square,
+  Play,
+  Pause,
+  RotateCcw,
+  Type,
+  PanelBottom,
+  FlipHorizontal,
+  Gauge,
+  PanelsTopLeft
+} from 'lucide-react'
 
 type Props = {
   notes: string
@@ -22,14 +35,15 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
   const [isPaused, setIsPaused] = useState(false)
   const [countdown, setCountdown] = useState<number | null>(null)
 
-  // Layout / Teleprompter opts
-  const [overlayMode, setOverlayMode] = useState(true) // overlay vs split removed; overlay is most requested
+  // Teleprompter opts
+  const [overlayMode, setOverlayMode] = useState(true)
   const [mirror, setMirror] = useState(false)
   const [fontSize, setFontSize] = useState(28)
   const [lineHeight, setLineHeight] = useState(1.5)
   const [overlayOpacity, setOverlayOpacity] = useState(0.85)
-  const [windowHeightPct, setWindowHeightPct] = useState(70) // teleprompter window height % of video
-  const [speedPxPerSec, setSpeedPxPerSec] = useState(120) // smooth scroll speed
+  const [windowHeightPct, setWindowHeightPct] = useState(70)
+  // ⬇️ Slower default scrolling on first load
+  const [speedPxPerSec, setSpeedPxPerSec] = useState(60)
 
   // Smooth autoscroll loop
   const rAFRef = useRef<number | null>(null)
@@ -69,12 +83,11 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
       // @ts-ignore
       else if (el.msRequestFullscreen) el.msRequestFullscreen()
     } catch {}
-    // Try to go iOS native fullscreen on the video if possible (Safari)
+    // iOS Safari best-effort
     try {
       // @ts-ignore
       if (videoRef.current?.webkitEnterFullScreen) videoRef.current.webkitEnterFullScreen()
     } catch {}
-    // Try orientation lock (best-effort)
     try {
       // @ts-ignore
       await screen.orientation?.lock?.('landscape')
@@ -101,7 +114,7 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
       return
     }
     if (lastTsRef.current == null) lastTsRef.current = ts
-    const dt = (ts - lastTsRef.current) / 1000 // seconds
+    const dt = (ts - lastTsRef.current) / 1000
     lastTsRef.current = ts
 
     const el = promptScrollRef.current
@@ -110,7 +123,6 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
     const next = Math.min(maxScroll, el.scrollTop + delta)
     el.scrollTop = next
 
-    // stop auto when at bottom
     if (next >= maxScroll - 1) {
       setAutoScroll(false)
       rAFRef.current = null
@@ -229,47 +241,97 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
               <p className="text-sm text-white/60">Countdown overlays on video. Recording goes fullscreen automatically.</p>
             </div>
 
-            {/* Controls */}
+            {/* Small settings row (icons + sliders) */}
             <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-2 text-sm text-white/70">
-                <input type="checkbox" className="accent-blue-500" checked={overlayMode} onChange={e => setOverlayMode(e.target.checked)} />
-                Overlay text on video
-              </label>
-              <label className="flex items-center gap-2 text-sm text-white/70">
-                <input type="checkbox" className="accent-blue-500" checked={mirror} onChange={e => setMirror(e.target.checked)} />
-                Mirror
-              </label>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Toggle overlay mode"
+                title="Toggle overlay mode"
+                onClick={() => setOverlayMode(v => !v)}
+              >
+                <PanelsTopLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Mirror video & text"
+                title="Mirror"
+                onClick={() => setMirror(v => !v)}
+              >
+                <FlipHorizontal className="h-5 w-5" />
+              </button>
 
               <div className="flex items-center gap-2">
-                <span className="text-sm text-white/70">Speed</span>
-                <input type="range" min={0} max={400} step={10} value={speedPxPerSec} onChange={(e)=>setSpeedPxPerSec(parseInt(e.target.value))} className="w-32" />
-                <span className="text-sm text-white/60 w-12">{speedPxPerSec}px/s</span>
+                <Gauge className="h-4 w-4 opacity-70" />
+                <input
+                  type="range"
+                  min={0}
+                  max={300}
+                  step={10}
+                  value={speedPxPerSec}
+                  onChange={(e)=>setSpeedPxPerSec(parseInt(e.target.value))}
+                  className="w-28"
+                  aria-label="Scroll speed"
+                />
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-sm text-white/70">Size</span>
-                <input type="range" min={18} max={48} step={1} value={fontSize} onChange={(e)=>setFontSize(parseInt(e.target.value))} className="w-32" />
-                <span className="text-sm text-white/60 w-10">{fontSize}px</span>
+                <Type className="h-4 w-4 opacity-70" />
+                <input
+                  type="range"
+                  min={18}
+                  max={48}
+                  step={1}
+                  value={fontSize}
+                  onChange={(e)=>setFontSize(parseInt(e.target.value))}
+                  className="w-28"
+                  aria-label="Font size"
+                />
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-sm text-white/70">Line</span>
-                <input type="range" min={1.2} max={2.0} step={0.05} value={lineHeight} onChange={(e)=>setLineHeight(parseFloat(e.target.value))} className="w-28" />
-                <span className="text-sm text-white/60 w-10">{lineHeight.toFixed(2)}</span>
+                <span className="text-xs text-white/70">LH</span>
+                <input
+                  type="range"
+                  min={1.2}
+                  max={2.0}
+                  step={0.05}
+                  value={lineHeight}
+                  onChange={(e)=>setLineHeight(parseFloat(e.target.value))}
+                  className="w-24"
+                  aria-label="Line height"
+                />
               </div>
 
               {overlayMode && (
                 <>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-white/70">Overlay</span>
-                    <input type="range" min={0.3} max={0.95} step={0.05} value={overlayOpacity} onChange={(e)=>setOverlayOpacity(parseFloat(e.target.value))} className="w-28" />
-                    <span className="text-sm text-white/60 w-10">{overlayOpacity.toFixed(2)}</span>
+                    <PanelBottom className="h-4 w-4 opacity-70" />
+                    <input
+                      type="range"
+                      min={0.3}
+                      max={0.95}
+                      step={0.05}
+                      value={overlayOpacity}
+                      onChange={(e)=>setOverlayOpacity(parseFloat(e.target.value))}
+                      className="w-24"
+                      aria-label="Overlay opacity"
+                    />
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-white/70">Win H</span>
-                    <input type="range" min={40} max={90} step={2} value={windowHeightPct} onChange={(e)=>setWindowHeightPct(parseInt(e.target.value))} className="w-28" />
-                    <span className="text-sm text-white/60 w-12">{windowHeightPct}%</span>
+                    <span className="text-xs text-white/70">Win</span>
+                    <input
+                      type="range"
+                      min={40}
+                      max={90}
+                      step={2}
+                      value={windowHeightPct}
+                      onChange={(e)=>setWindowHeightPct(parseInt(e.target.value))}
+                      className="w-24"
+                      aria-label="Overlay window height"
+                    />
                   </div>
                 </>
               )}
@@ -286,10 +348,86 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
                 playsInline
               />
 
+              {/* Floating Controls (mobile-friendly) */}
+              <div className="absolute inset-x-0 bottom-3 flex items-center justify-center">
+                <div className="flex gap-4 bg-black/30 backdrop-blur px-4 py-2 rounded-full border border-white/10">
+                  {!isRecording ? (
+                    <button
+                      className="fab-btn"
+                      onClick={doCountdownThenRecord}
+                      aria-label="Start recording with countdown"
+                      title="Start"
+                    >
+                      <PlayCircle className="h-7 w-7" />
+                    </button>
+                  ) : (
+                    <>
+                      {!isPaused ? (
+                        <button
+                          className="fab-btn"
+                          onClick={pauseRecording}
+                          aria-label="Pause recording"
+                          title="Pause"
+                        >
+                          <PauseCircle className="h-7 w-7" />
+                        </button>
+                      ) : (
+                        <button
+                          className="fab-btn"
+                          onClick={resumeRecording}
+                          aria-label="Resume recording"
+                          title="Resume"
+                        >
+                          <Play className="h-7 w-7" />
+                        </button>
+                      )}
+                      <button
+                        className="fab-btn !bg-red-600/80 hover:!bg-red-600"
+                        onClick={stopRecording}
+                        aria-label="Stop recording"
+                        title="Stop"
+                      >
+                        <Square className="h-7 w-7" />
+                      </button>
+                    </>
+                  )}
+
+                  {/* Teleprompter control icons */}
+                  {!autoScroll ? (
+                    <button
+                      className="fab-btn"
+                      onClick={startScroll}
+                      aria-label="Start teleprompter scroll"
+                      title="Scroll"
+                      disabled={isPaused}
+                    >
+                      <Play className="h-6 w-6" />
+                    </button>
+                  ) : (
+                    <button
+                      className="fab-btn"
+                      onClick={pauseScroll}
+                      aria-label="Pause teleprompter scroll"
+                      title="Pause Scroll"
+                    >
+                      <Pause className="h-6 w-6" />
+                    </button>
+                  )}
+                  <button
+                    className="fab-btn"
+                    onClick={resetScroll}
+                    aria-label="Reset teleprompter position"
+                    title="Reset"
+                  >
+                    <RotateCcw className="h-6 w-6" />
+                  </button>
+                </div>
+              </div>
+
               {/* COUNTDOWN overlay */}
               {countdown !== null && countdown > 0 && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-[18vw] md:text-[12vw] font-extrabold drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
+                  <div className="text-[20vw] md:text-[12vw] font-extrabold drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
                     {countdown}
                   </div>
                 </div>
@@ -322,33 +460,41 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
             </div>
           </div>
 
-          {/* ACTIONS */}
+          {/* Desktop auxiliary controls (optional; icons only above are primary) */}
           <div className="mt-4 flex flex-wrap items-center gap-3">
             {!isRecording ? (
-              <button className="btn" onClick={doCountdownThenRecord}>Start (3-2-1)</button>
+              <button className="btn" onClick={doCountdownThenRecord}>
+                <PlayCircle className="h-5 w-5 mr-2" /> Start (3-2-1)
+              </button>
             ) : (
               <>
                 {!isPaused ? (
-                  <button className="btn-secondary btn" onClick={pauseRecording}>Pause</button>
+                  <button className="btn-secondary btn" onClick={pauseRecording}>
+                    <PauseCircle className="h-5 w-5 mr-2" /> Pause
+                  </button>
                 ) : (
-                  <button className="btn" onClick={resumeRecording}>Resume</button>
+                  <button className="btn" onClick={resumeRecording}>
+                    <Play className="h-5 w-5 mr-2" /> Resume
+                  </button>
                 )}
-                <button className="btn-secondary btn" onClick={stopRecording}>Stop</button>
+                <button className="btn-secondary btn" onClick={stopRecording}>
+                  <Square className="h-5 w-5 mr-2" /> Stop
+                </button>
               </>
             )}
-
-            {/* Teleprompter controls */}
             <div className="h-6 w-px bg-white/20 mx-1" />
             {!autoScroll ? (
               <button className="btn-secondary btn" onClick={startScroll} disabled={isPaused}>
-                Scroll
+                <Play className="h-4 w-4 mr-2" /> Scroll
               </button>
             ) : (
               <button className="btn-secondary btn" onClick={pauseScroll}>
-                Pause Scroll
+                <Pause className="h-4 w-4 mr-2" /> Pause Scroll
               </button>
             )}
-            <button className="btn-secondary btn" onClick={resetScroll}>Reset</button>
+            <button className="btn-secondary btn" onClick={resetScroll}>
+              <RotateCcw className="h-4 w-4 mr-2" /> Reset
+            </button>
           </div>
         </div>
       </div>
@@ -366,6 +512,32 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
           </div>
         </div>
       )}
+
+      {/* Local styles for icon buttons */}
+      <style jsx>{`
+        .icon-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          height: 36px;
+          width: 36px;
+          border-radius: 9999px;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.12);
+        }
+        .icon-btn:hover { background: rgba(255,255,255,0.1); }
+        .fab-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          height: 46px;
+          width: 46px;
+          border-radius: 9999px;
+          background: rgba(59,130,246,0.85); /* blue-500/85 */
+          border: 1px solid rgba(255,255,255,0.2);
+        }
+        .fab-btn:hover { background: rgba(59,130,246,1); }
+      `}</style>
     </div>
   )
 }
