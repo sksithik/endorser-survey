@@ -27,7 +27,7 @@ export default function HomePage() {
 
   // Path A: selfie + voice
   const [selfie, setSelfie] = useState<string>('') // dataURL
-  const [voiceBlobUrl, setVoiceBlobUrl] = useState<string>('') // webm blob URL
+  const [voicePublicUrl, setVoicePublicUrl] = useState<string>('') // webm blob URL
 
   // Path B: teleprompter video
   const [videoBlobUrl, setVideoBlobUrl] = useState<string>('') // webm/mp4 blob URL
@@ -69,7 +69,7 @@ export default function HomePage() {
         if (data.selfie_public_url) setSelfiePublicUrl(data.selfie_public_url)
         if (data.notes) setNotes(data.notes)
         if (data.mode) setMode(data.mode as Mode)
-        if (data.voice_url) setVoiceBlobUrl(data.voice_url)
+        if (data.voice_url) setVoicePublicUrl(data.voice_url)
         if (data.video_url) setVideoBlobUrl(data.video_url)
       } else if (error) {
         console.error('Failed to load session:', error)
@@ -88,10 +88,10 @@ export default function HomePage() {
       mode,
       selfie,
       selfie_public_url: selfiePublicUrl,
-      voice_url: voiceBlobUrl,
+      voice_url: voicePublicUrl,
       video_url: videoBlobUrl
     })
-  }, [qas, step, notes, mode, selfie, selfiePublicUrl, voiceBlobUrl, videoBlobUrl, isLoading, saveProgress])
+  }, [qas, step, notes, mode, selfie, selfiePublicUrl, voicePublicUrl, videoBlobUrl, isLoading, saveProgress])
 
   // Auto-generate notes when entering Mode step and notes are empty
   useEffect(() => {
@@ -115,7 +115,7 @@ export default function HomePage() {
     if (mode === 'selfie_voice') {
       // Selfie+Voice collection step
       const selfieVoiceStep = qas.length + 1
-      if (step === selfieVoiceStep) return !!selfie && !!voiceBlobUrl
+      if (step === selfieVoiceStep) return !!selfie && !!voicePublicUrl
       // Output step (always allowed to proceed—preview/download handled inside)
       return true
     }
@@ -185,8 +185,8 @@ export default function HomePage() {
               setSelfie={setSelfie}
               selfiePublicUrl={selfiePublicUrl}
               setSelfiePublicUrl={setSelfiePublicUrl}
-              voiceBlobUrl={voiceBlobUrl}
-              setVoiceBlobUrl={setVoiceBlobUrl}
+              voicePublicUrl={voicePublicUrl}
+              setVoicePublicUrl={setVoicePublicUrl}
               sessionId={sessionId || undefined}
             />
           )}
@@ -196,7 +196,7 @@ export default function HomePage() {
             <StepGenerateFromAssets
               notes={notes}
               selfie={selfie}
-              voiceBlobUrl={voiceBlobUrl}
+              voicePublicUrl={voicePublicUrl}
             />
           )}
 
