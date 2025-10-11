@@ -270,7 +270,7 @@ export default function StepSelfieVoice({
         <SelfieCapture onCapture={handleSelfieCapture} existingSelfie={selfie} />
         {selfie && (
           <div className="mt-3">
-            <img src={selfie} alt="Selfie preview" className="rounded-lg border border-white/10 max-w-xs" />
+            <img src={selfie} alt="Selfie preview" className="rounded-lg border border-white/10 w-full max-w-xs mx-auto block" />
           </div>
         )}
         {selfiePublicUrl && <p className="text-xs text-white/50 mt-2">Saved to cloud for this session.</p>}
