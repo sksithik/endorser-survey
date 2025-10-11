@@ -157,56 +157,66 @@ export default function HomePage() {
         <div className="grid gap-6">
           {/* Questionnaire (multi) */}
           {step < qas.length && (
-            <StepQuestionnaire
-              q={qas[step]}
-              index={step}
-              total={qas.length}
-              onChange={(v) => setQas(prev => {
-                const copy = [...prev]; copy[step] = { ...copy[step], answer: v }; return copy
-              })}
-            />
+            <div className="w-full max-w-2xl mx-auto">
+              <StepQuestionnaire
+                q={qas[step]}
+                index={step}
+                total={qas.length}
+                onChange={(v) => setQas(prev => {
+                  const copy = [...prev]; copy[step] = { ...copy[step], answer: v }; return copy
+                })}
+              />
+            </div>
           )}
 
           {/* Mode + Notes */}
           {step === qas.length && (
-            <StepModeAndNotes
-              notes={notes}
-              setNotes={setNotes}
-              mode={mode}
-              setMode={setMode}
-            />
+            <div className="w-full max-w-2xl mx-auto">
+              <StepModeAndNotes
+                notes={notes}
+                setNotes={setNotes}
+                mode={mode}
+                setMode={setMode}
+              />
+            </div>
           )}
 
           {/* Path A: Selfie + Voice (collect assets) */}
           {mode === 'selfie_voice' && step === qas.length + 1 && (
-            <StepSelfieVoice
-              notes={notes}
-              selfie={selfie}
-              setSelfie={setSelfie}
-              selfiePublicUrl={selfiePublicUrl}
-              setSelfiePublicUrl={setSelfiePublicUrl}
-              voicePublicUrl={voicePublicUrl}
-              setVoicePublicUrl={setVoicePublicUrl}
-              sessionId={sessionId || undefined}
-            />
+            <div className="w-full max-w-2xl mx-auto">
+              <StepSelfieVoice
+                notes={notes}
+                selfie={selfie}
+                setSelfie={setSelfie}
+                selfiePublicUrl={selfiePublicUrl}
+                setSelfiePublicUrl={setSelfiePublicUrl}
+                voicePublicUrl={voicePublicUrl}
+                setVoicePublicUrl={setVoicePublicUrl}
+                sessionId={sessionId || undefined}
+              />
+            </div>
           )}
 
           {/* Path A Output: FFmpeg slideshow + HeyGen */}
           {mode === 'selfie_voice' && step === qas.length + 2 && (
-            <StepGenerateFromAssets
-              notes={notes}
-              selfie={selfie}
-              voicePublicUrl={voicePublicUrl}
-            />
+            <div className="w-full max-w-2xl mx-auto">
+              <StepGenerateFromAssets
+                notes={notes}
+                selfie={selfie}
+                voicePublicUrl={voicePublicUrl}
+              />
+            </div>
           )}
 
           {/* Path B: Teleprompter recorder */}
           {mode === 'teleprompter_video' && step === qas.length + 1 && (
-            <StepTeleprompterRecord
-              notes={notes}
-              videoBlobUrl={videoBlobUrl}
-              setVideoBlobUrl={setVideoBlobUrl}
-            />
+            <div className="w-full max-w-2xl mx-auto">
+              <StepTeleprompterRecord
+                notes={notes}
+                videoBlobUrl={videoBlobUrl}
+                setVideoBlobUrl={setVideoBlobUrl}
+              />
+            </div>
           )}
 
           {/* Nav */}
