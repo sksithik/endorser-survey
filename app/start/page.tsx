@@ -27,7 +27,6 @@ export default function HomePage() {
 
   // Path A: selfie + voice
   const [selfie, setSelfie] = useState<string>('') // dataURL
-  const [voiceBlobUrl, setVoiceBlobUrl] = useState<string>(''); // webm blob URL
   const [voicePublicUrl, setVoicePublicUrl] = useState<string>('')
 
   // Path B: teleprompter video
