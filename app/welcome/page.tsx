@@ -1,11 +1,19 @@
+// app/welcome/page.tsx
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import { ConsentForm } from '@/components/ConsentForm';
 
 type IntroData = {
   heading: string;
   videoUrl: string;
   description: string;
+}
+
+// Defines the shape of the data we expect from Supabase
+type SessionData = {
+  intro: IntroData | string; // It can be a JSON string or an already parsed object
+  consent_given: boolean;
 }
 
 const safeJsonParse = (str: string): IntroData | null => {
@@ -36,7 +44,6 @@ export default async function WelcomePage({
             </div>
           </div>
         </header>
-
         <section className="flex-grow flex items-center justify-center">
           <div className="text-center max-w-3xl mx-auto px-6">
             <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4">
@@ -50,7 +57,6 @@ export default async function WelcomePage({
             </p>
           </div>
         </section>
-
         <footer className="text-center text-white/50 text-xs p-8">
           AI Talking Wizard © 2025
         </footer>
@@ -58,19 +64,24 @@ export default async function WelcomePage({
     );
   }
 
-  // --- The rest of your component logic remains the same ---
-  // It will only run if a sessionId IS present.
-
+  // Fetch session data, including the new consent_given field
   const { data, error } = await supabase
     .from('endorser_survey_sessions')
-    .select('intro')
+    .select('intro, consent_given') // <-- UPDATED SELECT
     .eq('session_id', sessionId)
-    .single();
+    .single<SessionData>();
 
   if (error || !data) {
     console.error('Supabase fetch error for sessionId:', sessionId, error);
-    notFound(); // Still useful to show 404 for an invalid sessionId
+    notFound();
   }
+
+  // **NEW LOGIC**: If consent has not been given, show the consent form.
+  if (!data.consent_given) {
+    return <ConsentForm sessionId={sessionId} />;
+  }
+
+  // --- The rest of your component logic runs only if consent IS given ---
 
   const introData: IntroData | null = typeof data.intro === 'string'
     ? safeJsonParse(data.intro)
