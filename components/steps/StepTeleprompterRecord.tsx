@@ -42,6 +42,23 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
   const [lineHeight, setLineHeight] = useState(1.5)
   const [speedPxPerSec, setSpeedPxPerSec] = useState(60)
 
+  // Helpful tips
+  const [showTips, setShowTips] = useState(false);
+  const helpfulTips = [
+    {
+      title: 'Lighting',
+      content: 'Face a light source like a window or lamp. Avoid having a bright light behind you. Good lighting makes a huge difference!',
+    },
+    {
+      title: 'Microphone',
+      content: 'Stay about 1-2 feet away from your microphone for clear audio. If you can, use an external microphone for the best quality.',
+    },
+    {
+      title: 'Framing',
+      content: 'Position your camera at eye level. Look directly at the camera lens, not at the screen. Frame yourself from the chest up.',
+    },
+  ];
+
   // Autoscroll
   const rAFRef = useRef<number | null>(null)
   const lastTsRef = useRef<number | null>(null)
@@ -169,6 +186,21 @@ export default function StepTeleprompterRecord({ notes, videoBlobUrl, setVideoBl
         <p className="text-sm text-white/60">
           Record yourself with a scrolling script. Your controls are below the video.
         </p>
+        <div className="mt-4">
+          <button onClick={() => setShowTips(!showTips)} className="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors">
+            {showTips ? 'Hide Helpful Tips' : 'Show Helpful Tips'}
+          </button>
+          {showTips && (
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              {helpfulTips.map((tip) => (
+                <div key={tip.title} className="bg-white/5 border border-white/10 p-4 rounded-lg">
+                  <h4 className="font-semibold text-white">{tip.title}</h4>
+                  <p className="text-white/70 mt-1">{tip.content}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* === Main video area with integrated controls === */}
