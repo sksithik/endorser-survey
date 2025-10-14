@@ -11,8 +11,9 @@ import StepModeAndNotes from '@/components/steps/StepModeAndNotes'
 import StepQuestionnaire from '@/components/steps/StepQuestionnaire'
 import StepSelfieVoice from '@/components/steps/StepSelfieVoice'
 import StepTeleprompterRecord from '@/components/steps/StepTeleprompterRecord'
+import StepAvatar from '@/components/steps/StepAvatar'
 
-type Mode = 'selfie_voice' | 'teleprompter_video' | null
+type Mode = 'slideshow' | 'teleprompter_video' | 'avatar' | null
 
 export default function HomePage() {
   const searchParams = useSearchParams()
@@ -112,7 +113,7 @@ export default function HomePage() {
     if (step < qas.length) return qas[step]?.answer.trim().length > 0
     if (step === qas.length) return !!mode && !!notes?.trim() // Mode+Notes step
     // Path steps:
-    if (mode === 'selfie_voice') {
+    if (mode === 'slideshow') {
       // Selfie+Voice collection step
       const selfieVoiceStep = qas.length + 1
       if (step === selfieVoiceStep) return !!selfie && !!voicePublicUrl
@@ -124,6 +125,11 @@ export default function HomePage() {
       if (step === teleStep) return !!videoBlobUrl // must have recorded
       return true
     }
+    if (mode === 'avatar') {
+        const avatarStep = qas.length + 1
+        if (step === avatarStep) return true // Placeholder step, always allow next
+        return true
+    }
     return true
   }
 
@@ -133,6 +139,8 @@ export default function HomePage() {
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center text-white/80">Loading your session…</div>
   }
+
+  const headerTitle = mode === 'teleprompter_video' ? 'Teleprompter' : mode === 'avatar' ? 'Avatar' : 'Assets'
 
   return (
     <main className="min-h-screen pb-20">
@@ -148,7 +156,7 @@ export default function HomePage() {
 
       <section className="max-w-4xl mx-auto px-6 mt-10 md:mt-14">
         <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-2">
-          Questions → Notes → {mode === 'teleprompter_video' ? 'Teleprompter' : 'Assets'} → Output
+          Questions → Notes → {headerTitle} → Output
         </h1>
         <p className="text-white/70 mb-8">
           Choose your creation path: record a polished video with a teleprompter, or capture a selfie + voice and render a narrated video.
@@ -177,8 +185,8 @@ export default function HomePage() {
             />
           )}
 
-          {/* Path A: Selfie + Voice (collect assets) */}
-          {mode === 'selfie_voice' && step === qas.length + 1 && (
+          {/* Path A: Slideshow (collect assets) */}
+          {mode === 'slideshow' && step === qas.length + 1 && (
             <StepSelfieVoice
               notes={notes}
               selfie={selfie}
@@ -192,7 +200,7 @@ export default function HomePage() {
           )}
 
           {/* Path A Output: FFmpeg slideshow + HeyGen */}
-          {mode === 'selfie_voice' && step === qas.length + 2 && (
+          {mode === 'slideshow' && step === qas.length + 2 && (
             <StepGenerateFromAssets
               notes={notes}
               selfie={selfie}
@@ -207,6 +215,11 @@ export default function HomePage() {
               videoBlobUrl={videoBlobUrl}
               setVideoBlobUrl={setVideoBlobUrl}
             />
+          )}
+
+          {/* Path C: Avatar */}
+          {mode === 'avatar' && step === qas.length + 1 && (
+            <StepAvatar />
           )}
 
           {/* Nav */}

@@ -1,7 +1,28 @@
 'use client'
 import { useMemo } from 'react'
 
-type Mode = 'selfie_voice' | 'teleprompter_video' | null
+const creationModes = [
+  {
+    id: 'teleprompter_video',
+    title: 'Real Camera',
+    description: 'Record yourself with a built-in teleprompter for a polished delivery.',
+    videoUrl: 'https://storage.googleapis.com/gemini-dev-public/demo-clips/teleprompter_demo.mp4',
+  },
+  {
+    id: 'avatar',
+    title: 'AI Avatar',
+    description: 'Generate a video with a talking AI avatar from your script.',
+    videoUrl: 'https://storage.googleapis.com/gemini-dev-public/demo-clips/avatar_demo.mp4',
+  },
+  {
+    id: 'slideshow',
+    title: 'Narrated Slideshow',
+    description: 'Create a simple video by recording your voice over the script.',
+    videoUrl: 'https://storage.googleapis.com/gemini-dev-public/demo-clips/slideshow_demo.mp4',
+  },
+];
+
+type Mode = 'teleprompter_video' | 'avatar' | 'slideshow' | null;
 
 type Props = {
   notes: string
@@ -104,47 +125,42 @@ export default function StepModeAndNotes({
 
       {/* Mode Picker */}
       <div className="card">
-        <h3 className="text-xl font-semibold mb-3">Choose How You Want to Create</h3>
+        <h3 className="text-xl font-semibold mb-3">Choose Your Creation Mode</h3>
+        <p className="text-sm text-white/60 mb-4">Select how you want to generate your video. Click a card to see a preview.</p>
 
-        <div className="grid sm:grid-cols-2 gap-4">
-          <button
-            type="button"
-            onClick={() => setMode('selfie_voice')}
-            className={`p-4 rounded-xl border transition ring-offset-2 ${
-              mode === 'selfie_voice'
-                ? 'border-blue-500 ring-2 ring-blue-500/50'
-                : 'border-white/10 hover:border-white/20'
-            } bg-white/5 text-left`}
-          >
-            <div className="text-lg font-semibold mb-1">Selfie + Voice</div>
-            <ul className="text-sm text-white/70 space-y-1 list-disc pl-5">
-              <li>Capture a selfie</li>
-              <li>Record your voice reading the script</li>
-              <li>Next: export slideshow MP4 or generate HeyGen</li>
-            </ul>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setMode('teleprompter_video')}
-            className={`p-4 rounded-xl border transition ring-offset-2 ${
-              mode === 'teleprompter_video'
-                ? 'border-blue-500 ring-2 ring-blue-500/50'
-                : 'border-white/10 hover:border-white/20'
-            } bg-white/5 text-left`}
-          >
-            <div className="text-lg font-semibold mb-1">Teleprompter Video</div>
-            <ul className="text-sm text-white/70 space-y-1 list-disc pl-5">
-              <li>Built-in teleprompter</li>
-              <li>3-2-1 countdown</li>
-              <li>Preview & download your recording</li>
-            </ul>
-          </button>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {creationModes.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => setMode(m.id as Exclude<Mode, null>)}
+              className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                mode === m.id
+                  ? 'border-blue-500 ring-4 ring-blue-500/20 bg-blue-500/10'
+                  : 'border-white/10 hover:border-white/30 bg-white/5'
+              } text-left flex flex-col`}
+            >
+              <div className="flex-grow">
+                <div className="font-semibold text-lg mb-1">{m.title}</div>
+                <p className="text-sm text-white/70 mb-3">{m.description}</p>
+              </div>
+              <div className="aspect-video rounded-md overflow-hidden border border-white/10 mt-2">
+                <video
+                  src={m.videoUrl}
+                  className="w-full h-full object-cover"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                />
+              </div>
+            </button>
+          ))}
         </div>
 
         {/* Small helper */}
-        <p className="text-xs text-white/50 mt-3">
-          Tip: If you plan to use HeyGen, keep sentences short and conversational for better lip-sync.
+        <p className="text-xs text-white/50 mt-4 text-center">
+          Tip: For best results with AI avatars, keep your script conversational and under 30 seconds.
         </p>
       </div>
     </div>
