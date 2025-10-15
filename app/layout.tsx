@@ -1,20 +1,26 @@
-import { Suspense } from 'react'
-import './globals.css'
-import type { Metadata } from 'next'
+import { Inter } from 'next/font/google';
+import { Suspense } from 'react';
+import './globals.css';
+import type { Metadata } from 'next';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'AI Talking Wizard',
-  description: 'Survey → selfie → auto-notes → talking video',
-}
+  title: 'EndorseGen - Authentic Video Testimonials',
+  description:
+    'Create authentic video endorsements or AI-generated testimonial videos for businesses.',
+};
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en">
-      <body>
-        <Suspense>
-          {children}
-        </Suspense>
+    <html lang="en" className="h-full bg-gray-50">
+      <body className={`${inter.className} h-full`}>
+        <Suspense>{children}</Suspense>
       </body>
     </html>
-  )
+  );
 }
