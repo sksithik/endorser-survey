@@ -86,29 +86,77 @@ export default function AvatarPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
-  const [selfie, setSelfie] = useState<File | null>(null);
-  const [selfieMode, setSelfieMode] = useState(false); // To toggle between upload and camera
+  const [selfie, setSelfie] = useState<File | string | null>(null);
+  const [selfieMode, setSelfieMode] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState('template1');
   const [showConsent, setShowConsent] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  useEffect(() => {
+    const fetchSelfie = async () => {
+      if (!token) return;
+      try {
+        const response = await fetch(`/api/session/${token}`);
+        const result = await response.json();
+        if (result.success && result.data?.selfie_public_url) {
+          setSelfie(result.data.selfie_public_url);
+        }
+      } catch (error) {
+        console.error("Failed to fetch existing selfie:", error);
+      }
+    };
+    fetchSelfie();
+  }, [token]);
 
   const mockTemplates = [
     { id: 'template1', name: 'Modern Office', imageUrl: '/assets/modern_office.png' },
     { id: 'template2', name: 'Casual Cafe', imageUrl: '/assets/casual_cafe.png' },
     { id: 'template3', name: 'Abstract Gradient', imageUrl: '/assets/abstract_Gradient.png' },
-    { id: 'template4', name: 'Bookshelf', imageUrl: '/assets/licensed-image.png' }, // Using licensed-image as a substitute
+    { id: 'template4', name: 'Bookshelf', imageUrl: '/assets/licensed-image.png' },
   ];
+
+  const uploadSelfie = async (file: File) => {
+    if (!token) {
+      alert("Session token is missing.");
+      return;
+    }
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('token', token);
+      formData.append('file', file);
+
+      const response = await fetch('/api/selfie/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setSelfie(result.publicUrl);
+      } else {
+        alert(`Upload failed: ${result.message}`);
+      }
+    } catch (error) {
+      console.error("Failed to upload selfie:", error);
+      alert("An error occurred during upload.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
-      setSelfie(event.target.files[0]);
+      uploadSelfie(event.target.files[0]);
     }
   };
 
   const handleSelfieTaken = useCallback((file: File) => {
-    setSelfie(file);
     setSelfieMode(false);
-  }, []);
+    uploadSelfie(file);
+  }, [token]);
 
   const handleCancelSelfie = useCallback(() => {
     setSelfieMode(false);
@@ -155,6 +203,8 @@ export default function AvatarPage() {
     );
   }
 
+  const selfieSrc = typeof selfie === 'string' ? selfie : selfie ? URL.createObjectURL(selfie) : null;
+
   return (
     <>
       {showConsent && <ConsentModal onAccept={handleConsentAccept} onDecline={() => setShowConsent(false)} />}
@@ -170,9 +220,14 @@ export default function AvatarPage() {
             <div className="bg-white p-8 rounded-lg shadow-md">
               <h3 className="text-xl font-semibold mb-4">1. Provide Your Selfie</h3>
               <div>
-                <div className="w-full aspect-square border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mb-4 bg-gray-50">
-                  {selfie ? (
-                    <img src={URL.createObjectURL(selfie)} alt="Selfie preview" className="w-full h-full object-cover rounded-lg" />
+                <div className="w-full aspect-square border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mb-4 bg-gray-50 relative">
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center rounded-lg z-10">
+                      <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12"></div>
+                    </div>
+                  )}
+                  {selfieSrc ? (
+                    <img src={selfieSrc} alt="Selfie preview" className="w-full h-full object-cover rounded-lg" />
                   ) : (
                     <p className="text-gray-500">Image Preview</p>
                   )}
@@ -180,9 +235,9 @@ export default function AvatarPage() {
                 <div className="flex items-center gap-4">
                   <label className="w-full cursor-pointer text-center px-6 py-3 bg-indigo-50 text-indigo-700 rounded-md hover:bg-indigo-100 font-semibold">
                     Upload File
-                    <input type="file" accept="image/*" onChange={handleFileChange} className="hidden"/>
+                    <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" disabled={isUploading}/>
                   </label>
-                  <button onClick={() => setSelfieMode(true)} className="w-full px-6 py-3 bg-gray-800 text-white rounded-md font-semibold">Take Selfie</button>
+                  <button onClick={() => setSelfieMode(true)} className="w-full px-6 py-3 bg-gray-800 text-white rounded-md font-semibold" disabled={isUploading}>Take Selfie</button>
                 </div>
                 <p className="text-xs text-gray-500 mt-2 text-center">For best results, use a clear, front-facing photo.</p>
               </div>
@@ -204,7 +259,7 @@ export default function AvatarPage() {
           </div>
 
           <div className="text-center mt-10">
-            <button onClick={handleGenerateClick} disabled={!selfie} className="px-10 py-4 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed">
+            <button onClick={handleGenerateClick} disabled={!selfie || isUploading} className="px-10 py-4 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed">
               Generate Video
             </button>
           </div>
