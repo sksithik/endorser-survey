@@ -2,7 +2,7 @@
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 
 // --- Reusable Components ---
@@ -29,15 +29,14 @@ const TemplateTile = ({ name, imageUrl, selected, onClick }: { name: string, ima
 
 const SelfieCamera = ({ onSelfieTaken, onCancel }: { onSelfieTaken: (file: File) => void, onCancel: () => void }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
-    const [stream, setStream] = useState<MediaStream | null>(null);
 
     useEffect(() => {
+        let stream: MediaStream | null = null;
         const setupCamera = async () => {
             try {
-                const s = await navigator.mediaDevices.getUserMedia({ video: true });
-                setStream(s);
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 if (videoRef.current) {
-                    videoRef.current.srcObject = s;
+                    videoRef.current.srcObject = stream;
                 }
             } catch (err) {
                 console.error("Camera access denied:", err);
@@ -49,7 +48,7 @@ const SelfieCamera = ({ onSelfieTaken, onCancel }: { onSelfieTaken: (file: File)
         return () => {
             stream?.getTracks().forEach(track => track.stop());
         };
-    }, [onCancel, stream]);
+    }, [onCancel]);
 
     const handleSnap = () => {
         if (!videoRef.current) return;
@@ -67,11 +66,13 @@ const SelfieCamera = ({ onSelfieTaken, onCancel }: { onSelfieTaken: (file: File)
     };
 
     return (
-        <div className="w-full">
-            <video ref={videoRef} autoPlay playsInline muted className="w-full aspect-square object-cover rounded-lg mb-4" />
-            <div className="flex gap-4">
-                <button onClick={handleSnap} className="w-full px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Snap Photo</button>
-                <button onClick={onCancel} className="w-full px-6 py-3 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+            <div className="bg-white p-4 rounded-lg shadow-xl max-w-md w-full">
+                <video ref={videoRef} autoPlay playsInline muted className="w-full aspect-square object-cover rounded-lg mb-4" />
+                <div className="flex gap-4">
+                    <button onClick={handleSnap} className="w-full px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Snap Photo</button>
+                    <button onClick={onCancel} className="w-full px-6 py-3 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                </div>
             </div>
         </div>
     );
@@ -104,10 +105,14 @@ export default function AvatarPage() {
     }
   };
 
-  const handleSelfieTaken = (file: File) => {
+  const handleSelfieTaken = useCallback((file: File) => {
     setSelfie(file);
     setSelfieMode(false);
-  };
+  }, []);
+
+  const handleCancelSelfie = useCallback(() => {
+    setSelfieMode(false);
+  }, []);
 
   const handleGenerateClick = () => {
     if (!selfie) {
@@ -153,6 +158,7 @@ export default function AvatarPage() {
   return (
     <>
       {showConsent && <ConsentModal onAccept={handleConsentAccept} onDecline={() => setShowConsent(false)} />}
+      {selfieMode && <SelfieCamera onSelfieTaken={handleSelfieTaken} onCancel={handleCancelSelfie} />}
       <div className="w-full min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
         <div className="max-w-4xl w-full">
           <header className="text-center mb-10">
@@ -163,27 +169,23 @@ export default function AvatarPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             <div className="bg-white p-8 rounded-lg shadow-md">
               <h3 className="text-xl font-semibold mb-4">1. Provide Your Selfie</h3>
-              {selfieMode ? (
-                <SelfieCamera onSelfieTaken={handleSelfieTaken} onCancel={() => setSelfieMode(false)} />
-              ) : (
-                <div>
-                  <div className="w-full aspect-square border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mb-4 bg-gray-50">
-                    {selfie ? (
-                      <img src={URL.createObjectURL(selfie)} alt="Selfie preview" className="w-full h-full object-cover rounded-lg" />
-                    ) : (
-                      <p className="text-gray-500">Image Preview</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <label className="w-full cursor-pointer text-center px-6 py-3 bg-indigo-50 text-indigo-700 rounded-md hover:bg-indigo-100 font-semibold">
-                      Upload File
-                      <input type="file" accept="image/*" onChange={handleFileChange} className="hidden"/>
-                    </label>
-                    <button onClick={() => setSelfieMode(true)} className="w-full px-6 py-3 bg-gray-800 text-white rounded-md hover:bg-gray-900 font-semibold">Take Selfie</button>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2 text-center">For best results, use a clear, front-facing photo.</p>
+              <div>
+                <div className="w-full aspect-square border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mb-4 bg-gray-50">
+                  {selfie ? (
+                    <img src={URL.createObjectURL(selfie)} alt="Selfie preview" className="w-full h-full object-cover rounded-lg" />
+                  ) : (
+                    <p className="text-gray-500">Image Preview</p>
+                  )}
                 </div>
-              )}
+                <div className="flex items-center gap-4">
+                  <label className="w-full cursor-pointer text-center px-6 py-3 bg-indigo-50 text-indigo-700 rounded-md hover:bg-indigo-100 font-semibold">
+                    Upload File
+                    <input type="file" accept="image/*" onChange={handleFileChange} className="hidden"/>
+                  </label>
+                  <button onClick={() => setSelfieMode(true)} className="w-full px-6 py-3 bg-gray-800 text-white rounded-md font-semibold">Take Selfie</button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2 text-center">For best results, use a clear, front-facing photo.</p>
+              </div>
             </div>
 
             <div className="bg-white p-8 rounded-lg shadow-md">
