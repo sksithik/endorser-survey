@@ -12,7 +12,7 @@ export async function GET(request: Request, { params }: { params: { token: strin
   try {
     const { data, error } = await supabaseAdmin
       .from('endorser_survey_sessions')
-      .select('selfie_public_url')
+      .select('selfie_public_url, voice_public_url')
       .eq('session_id', token)
       .single();
 

@@ -1,4 +1,3 @@
-// app/recording/avatar/page.tsx
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -87,26 +86,47 @@ export default function AvatarPage() {
   const token = searchParams.get('token');
 
   const [selfie, setSelfie] = useState<File | string | null>(null);
+  const [voice, setVoice] = useState<File | string | null>(null);
   const [selfieMode, setSelfieMode] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState('template1');
   const [showConsent, setShowConsent] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isUploadingVoice, setIsUploadingVoice] = useState(false);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
-    const fetchSelfie = async () => {
-      if (!token) return;
+    const fetchAssets = async () => {
+      if (!token) {
+        console.log("No token found, skipping asset fetch.");
+        return;
+      }
+      console.log("Fetching existing assets for token:", token);
       try {
         const response = await fetch(`/api/session/${token}`);
         const result = await response.json();
-        if (result.success && result.data?.selfie_public_url) {
-          setSelfie(result.data.selfie_public_url);
+        console.log("API response for session data:", result);
+
+        if (result.success && result.data) {
+          if (result.data.selfie_public_url) {
+            console.log("Found existing selfie:", result.data.selfie_public_url);
+            setSelfie(result.data.selfie_public_url);
+          }
+          if (result.data.voice_public_url) {
+            console.log("Found existing voice:", result.data.voice_public_url);
+            setVoice(result.data.voice_public_url);
+          }
+        } else {
+            console.log("Session data API call was not successful or data is empty.");
         }
       } catch (error) {
-        console.error("Failed to fetch existing selfie:", error);
+        console.error("Failed to fetch existing assets:", error);
       }
     };
-    fetchSelfie();
+    fetchAssets();
   }, [token]);
 
   const mockTemplates = [
@@ -147,6 +167,39 @@ export default function AvatarPage() {
     }
   };
 
+  const uploadVoice = async (file: File) => {
+    if (!token) {
+      alert("Session token is missing.");
+      return;
+    }
+    setIsUploadingVoice(true);
+    try {
+      const formData = new FormData();
+      formData.append('token', token);
+      formData.append('file', file);
+
+      const response = await fetch('/api/voice/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setVoice(result.publicUrl);
+      } else {
+        alert(`Voice upload failed: ${result.message}`);
+        setVoice(null); // Clear voice state on failure
+      }
+    } catch (error) {
+      console.error("Failed to upload voice:", error);
+      alert("An error occurred during voice upload.");
+      setVoice(null);
+    } finally {
+      setIsUploadingVoice(false);
+    }
+  };
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       uploadSelfie(event.target.files[0]);
@@ -162,9 +215,42 @@ export default function AvatarPage() {
     setSelfieMode(false);
   }, []);
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioFile = new File([audioBlob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+        setVoice(audioFile); // Show local playback first
+        uploadVoice(audioFile);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Microphone access denied:", err);
+      alert("Microphone access is required to record your voice.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
   const handleGenerateClick = () => {
-    if (!selfie) {
-      alert("Please upload or take a selfie first.");
+    if (!selfie || !voice) {
+      alert("Please provide both a selfie and a voice recording.");
       return;
     }
     setShowConsent(true);
@@ -204,6 +290,7 @@ export default function AvatarPage() {
   }
 
   const selfieSrc = typeof selfie === 'string' ? selfie : selfie ? URL.createObjectURL(selfie) : null;
+  const voiceSrc = typeof voice === 'string' ? voice : voice ? URL.createObjectURL(voice) : null;
 
   return (
     <>
@@ -213,12 +300,15 @@ export default function AvatarPage() {
         <div className="max-w-4xl w-full">
           <header className="text-center mb-10">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900">Create an AI Avatar Video</h1>
-            <p className="text-lg text-gray-600 mt-2">Provide a selfie and choose a style. We'll do the rest.</p>
+            <p className="text-lg text-gray-600 mt-2">Provide your assets and choose a style. We'll do the rest.</p>
           </header>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             <div className="bg-white p-8 rounded-lg shadow-md">
-              <h3 className="text-xl font-semibold mb-4">1. Provide Your Selfie</h3>
+              <h3 className="text-xl font-semibold mb-4">1. Your Assets</h3>
+              
+              {/* Selfie Section */}
+              <h4 className="text-lg font-semibold text-gray-800 mb-4">Your Selfie</h4>
               <div>
                 <div className="w-full aspect-square border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mb-4 bg-gray-50 relative">
                   {isUploading && (
@@ -241,6 +331,26 @@ export default function AvatarPage() {
                 </div>
                 <p className="text-xs text-gray-500 mt-2 text-center">For best results, use a clear, front-facing photo.</p>
               </div>
+
+              {/* Voice Recording Section */}
+              <h4 className="text-lg font-semibold text-gray-800 mt-8 mb-4 border-t pt-6">Your Voice</h4>
+              <div className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center mb-4 bg-gray-50 min-h-[80px]">
+                {isUploadingVoice ? (
+                    <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-10 w-10"></div>
+                ) : voiceSrc ? (
+                    <audio src={voiceSrc} controls className="w-full" />
+                ) : (
+                    <p className="text-gray-500 text-center">{isRecording ? 'Recording in progress...' : 'Click "Record" to start.'}</p>
+                )}
+              </div>
+              <button 
+                  onClick={isRecording ? stopRecording : startRecording} 
+                  className={`w-full px-6 py-3 text-white font-semibold rounded-md transition-colors ${isRecording ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-800 hover:bg-gray-900'}`}
+                  disabled={isUploading || isUploadingVoice}
+              >
+                  {isRecording ? 'Stop Recording' : 'Record Voice'}
+              </button>
+              <p className="text-xs text-gray-500 mt-2 text-center">Record a few seconds of your voice for cloning.</p>
             </div>
 
             <div className="bg-white p-8 rounded-lg shadow-md">
@@ -259,7 +369,7 @@ export default function AvatarPage() {
           </div>
 
           <div className="text-center mt-10">
-            <button onClick={handleGenerateClick} disabled={!selfie || isUploading} className="px-10 py-4 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed">
+            <button onClick={handleGenerateClick} disabled={!selfie || !voice || isUploading || isUploadingVoice} className="px-10 py-4 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed">
               Generate Video
             </button>
           </div>
@@ -273,3 +383,4 @@ export default function AvatarPage() {
     </>
   );
 }
+""
