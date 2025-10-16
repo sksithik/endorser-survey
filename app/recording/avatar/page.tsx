@@ -60,7 +60,7 @@ const SelfieCamera = ({ onSelfieTaken, onCancel }: { onSelfieTaken: (file: File)
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
         canvas.toBlob(blob => {
             if (blob) {
-                onSelfieTaken(new File([blob], 'selfie.jpg', { type: 'image/jpeg' }));
+                onSelfieTaken(new File([blob], `selfie-${Date.now()}.jpg`, { type: 'image/jpeg' }));
             }
         }, 'image/jpeg');
     };
