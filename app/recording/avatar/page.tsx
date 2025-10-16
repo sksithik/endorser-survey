@@ -218,6 +218,7 @@ export default function AvatarPage() {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setVoice(null);
       mediaRecorderRef.current = new MediaRecorder(stream);
       audioChunksRef.current = [];
 
@@ -267,10 +268,22 @@ export default function AvatarPage() {
       });
       if (!consentResponse.ok) throw new Error('Failed to record consent.');
       
-      console.log("Consent recorded. Starting video generation...");
-      await new Promise(resolve => setTimeout(resolve, 4000));
-      console.log("Video generation complete.");
-      router.push(`/preview?token=${token}&type=avatar`);
+      console.log("Consent recorded. Starting video generation with HeyGen...");
+
+      const heygenResponse = await fetch('/api/talking-video-heygen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+
+      const heygenResult = await heygenResponse.json();
+
+      if (!heygenResponse.ok || !heygenResult.success) {
+        throw new Error(heygenResult.message || 'Failed to generate video with HeyGen.');
+      }
+
+      console.log("Video generation complete.", heygenResult);
+      router.push(`/preview?token=${token}&type=avatar&jobId=${heygenResult.id}`);
     } catch (error) {
       console.error(error);
       alert("An error occurred. Please try again.");

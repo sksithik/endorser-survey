@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Missing file or token.' }, { status: 400 });
     }
 
-    const filePath = `voices/${token}-voice.webm`;
+    const filePath = `voices/${token}-${file.name}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from('quotes-bucket')
