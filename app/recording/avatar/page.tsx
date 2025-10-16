@@ -1,3 +1,4 @@
+// app/recording/avatar/page.tsx
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -90,7 +91,7 @@ export default function AvatarPage() {
   const [selfieMode, setSelfieMode] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState('template1');
   const [showConsent, setShowConsent] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStep, setGenerationStep] = useState(''); // e.g., 'cloning', 'generating'
   const [isUploading, setIsUploading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isUploadingVoice, setIsUploadingVoice] = useState(false);
@@ -100,27 +101,17 @@ export default function AvatarPage() {
 
   useEffect(() => {
     const fetchAssets = async () => {
-      if (!token) {
-        console.log("No token found, skipping asset fetch.");
-        return;
-      }
-      console.log("Fetching existing assets for token:", token);
+      if (!token) return;
       try {
         const response = await fetch(`/api/session/${token}`);
         const result = await response.json();
-        console.log("API response for session data:", result);
-
         if (result.success && result.data) {
           if (result.data.selfie_public_url) {
-            console.log("Found existing selfie:", result.data.selfie_public_url);
             setSelfie(result.data.selfie_public_url);
           }
           if (result.data.voice_public_url) {
-            console.log("Found existing voice:", result.data.voice_public_url);
             setVoice(result.data.voice_public_url);
           }
-        } else {
-            console.log("Session data API call was not successful or data is empty.");
         }
       } catch (error) {
         console.error("Failed to fetch existing assets:", error);
@@ -189,7 +180,7 @@ export default function AvatarPage() {
         setVoice(result.publicUrl);
       } else {
         alert(`Voice upload failed: ${result.message}`);
-        setVoice(null); // Clear voice state on failure
+        setVoice(null);
       }
     } catch (error) {
       console.error("Failed to upload voice:", error);
@@ -229,7 +220,7 @@ export default function AvatarPage() {
       mediaRecorderRef.current.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const audioFile = new File([audioBlob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
-        setVoice(audioFile); // Show local playback first
+        setVoice(audioFile);
         uploadVoice(audioFile);
         stream.getTracks().forEach(track => track.stop());
       };
@@ -259,8 +250,8 @@ export default function AvatarPage() {
 
   const handleConsentAccept = async () => {
     setShowConsent(false);
-    setIsGenerating(true);
     try {
+      // Record consent first
       const consentResponse = await fetch('/api/consent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -268,8 +259,20 @@ export default function AvatarPage() {
       });
       if (!consentResponse.ok) throw new Error('Failed to record consent.');
       
-      console.log("Consent recorded. Starting video generation with HeyGen...");
+      // Step 1: Clone voice and generate TTS audio
+      setGenerationStep('cloning');
+      const cloneRes = await fetch('/api/voice/clone-and-tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      const cloneResult = await cloneRes.json();
+      if (!cloneRes.ok || !cloneResult.success) {
+        throw new Error(cloneResult.details || 'Failed to clone voice and generate audio.');
+      }
 
+      // Step 2: Generate video with HeyGen
+      setGenerationStep('generating');
       const heygenResponse = await fetch('/api/talking-video-heygen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -277,26 +280,30 @@ export default function AvatarPage() {
       });
 
       const heygenResult = await heygenResponse.json();
-
       if (!heygenResponse.ok || !heygenResult.success) {
         throw new Error(heygenResult.message || 'Failed to generate video with HeyGen.');
       }
 
-      console.log("Video generation complete.", heygenResult);
       router.push(`/preview?token=${token}&type=avatar&jobId=${heygenResult.id}`);
+
     } catch (error) {
       console.error(error);
-      alert("An error occurred. Please try again.");
-    } finally {
-      setIsGenerating(false);
+      alert(`An error occurred: ${error instanceof Error ? error.message : String(error)}`);
+      setGenerationStep('');
     }
   };
 
-  if (isGenerating) {
+  const isProcessing = generationStep !== '';
+
+  if (isProcessing) {
+    let message = 'Generating your AI Avatar video...';
+    if (generationStep === 'cloning') {
+        message = 'Cloning your voice and generating script audio...';
+    }
     return (
       <div className="w-full min-h-screen flex flex-col items-center justify-center text-center p-4">
         <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
-        <h2 className="text-xl font-semibold text-gray-700">Generating your AI Avatar video...</h2>
+        <h2 className="text-xl font-semibold text-gray-700">{message}</h2>
         <p className="text-gray-500">This can take a few minutes. Please don't close this page.</p>
       </div>
     );
@@ -396,4 +403,3 @@ export default function AvatarPage() {
     </>
   );
 }
-""

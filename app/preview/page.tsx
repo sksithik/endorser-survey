@@ -17,10 +17,10 @@ export default function PreviewPage() {
   const [statusMessage, setStatusMessage] = useState('Initializing video generation...');
 
   useEffect(() => {
-    if (!jobId) {
-      setStatus('failed');
-      setError('No video generation job ID was provided.');
-      return;
+    if (!jobId || !token) {
+        setStatus('failed');
+        setError('No job ID or token provided.');
+        return;
     }
 
     let isMounted = true;
@@ -30,7 +30,7 @@ export default function PreviewPage() {
       if (!isMounted) return;
 
       try {
-        const response = await fetch(`/api/talking-video-heygen?id=${jobId}`);
+        const response = await fetch(`/api/talking-video-heygen?id=${jobId}&token=${token}`);
         const data = await response.json();
 
         if (isMounted) {
@@ -49,7 +49,7 @@ export default function PreviewPage() {
       } catch (err) {
         console.error("Failed to fetch video status:", err);
         if (isMounted) {
-          timeoutId = setTimeout(pollStatus, 5000); // Retry on network error
+          timeoutId = setTimeout(pollStatus, 5000); // Retry on error
         }
       }
     };
@@ -60,7 +60,7 @@ export default function PreviewPage() {
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [jobId]);
+  }, [jobId, token]);
 
   return (
     <div className="w-full min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
