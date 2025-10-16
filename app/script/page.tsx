@@ -12,6 +12,7 @@ export default function ScriptPage() {
   const token = searchParams.get('token');
 
   const [isGenerating, setIsGenerating] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scripts, setScripts] = useState<any[] | null>(null);
   const [selectedScriptId, setSelectedScriptId] = useState<string>('v2');
@@ -68,9 +69,25 @@ export default function ScriptPage() {
     // The useEffect will trigger the re-generation
   };
 
-  const handleProceed = () => {
-    console.log("Proceeding with script:", editedContent);
-    router.push(`/recording?token=${token}`);
+  const handleProceed = async () => {
+    if (!token) return;
+    setIsSaving(true);
+    try {
+      const response = await fetch('/api/script/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, script: editedContent }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to save script.');
+      }
+      router.push(`/recording?token=${token}`);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isGenerating && !scripts) { // Only show full-page loader on initial load
@@ -100,7 +117,7 @@ export default function ScriptPage() {
         </header>
 
         <div className="bg-white p-8 rounded-lg shadow-md relative">
-          {isGenerating && (
+          {(isGenerating || isSaving) && (
             <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
                 <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-8 w-8"></div>
             </div>
@@ -146,9 +163,10 @@ export default function ScriptPage() {
         <div className="text-center mt-8">
           <button
             onClick={handleProceed}
-            className="px-10 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-lg"
+            disabled={isSaving}
+            className="px-10 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            Next: Choose Recording Mode
+            {isSaving ? 'Saving...' : 'Next: Choose Recording Mode'}
           </button>
         </div>
       </div>

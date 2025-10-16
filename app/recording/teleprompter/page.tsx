@@ -15,20 +15,19 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient'
 
-const notes = "From start to finish, my experience with Innovate Inc. was fantastic. Their attention to detail and commitment to customer satisfaction are second to none. If you're looking for a company that truly cares, look no further.";
-
 export default function TeleprompterPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const streamRef = useRef<MediaStream | null>(null);
   const promptScrollRef = useRef<HTMLDivElement | null>(null)
 
   // Media
-  const [stream, setStream] = useState<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<BlobPart[]>([])
 
   // State
+  const [notes, setNotes] = useState('Loading script...');
   const [isLoading, setIsLoading] = useState(true);
   const [isRecording, setIsRecording] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
@@ -73,9 +72,15 @@ export default function TeleprompterPage() {
       if (token) {
         const { data, error } = await supabase
           .from('endorser_survey_sessions')
-          .select('video_url')
+          .select('video_url, selected_script')
           .eq('session_id', token)
           .single();
+
+        if (data?.selected_script) {
+          setNotes(data.selected_script);
+        } else {
+          setNotes("No script was saved. Please go back and select a script.");
+        }
         
         if (data?.video_url) {
           setVideoBlobUrl(data.video_url);
@@ -90,7 +95,7 @@ export default function TeleprompterPage() {
       // If no video, set up the camera for recording
       try {
         const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        setStream(s)
+        streamRef.current = s;
         if (videoRef.current) {
           videoRef.current.srcObject = s
           await videoRef.current.play().catch(() => {})
@@ -105,9 +110,9 @@ export default function TeleprompterPage() {
     setup()
     return () => {
       cancelScroll()
-      stream?.getTracks().forEach(t => t.stop())
+      streamRef.current?.getTracks().forEach(t => t.stop())
     }
-  }, [token, stream])
+  }, [token])
 
   // ====== Teleprompter smooth scroll ======
   const scrollLoop = useCallback((ts: number) => {
@@ -148,10 +153,10 @@ export default function TeleprompterPage() {
   }
 
   const startRecording = () => {
-    if (!stream) return
+    if (!streamRef.current) return
     try {
       chunksRef.current = []
-      const rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9,opus' })
+      const rec = new MediaRecorder(streamRef.current, { mimeType: 'video/webm;codecs=vp9,opus' })
       recorderRef.current = rec
       
       rec.onstop = async () => {
