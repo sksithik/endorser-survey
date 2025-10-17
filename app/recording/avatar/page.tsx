@@ -78,6 +78,81 @@ const SelfieCamera = ({ onSelfieTaken, onCancel }: { onSelfieTaken: (file: File)
     );
 };
 
+const Teleprompter = ({ script, onStart, onStop, onCancel }: { script: string, onStart: () => void, onStop: () => void, onCancel: () => void }) => {
+    const [isScrolling, setIsScrolling] = useState(false);
+    const [scrollSpeed, setScrollSpeed] = useState(20); // pixels per second
+    const contentRef = useRef<HTMLDivElement>(null);
+    const scrollRef = useRef<number>(0);
+
+    useEffect(() => {
+        let animationFrameId: number;
+
+        const scroll = () => {
+            if (contentRef.current) {
+                const scrollAmount = (scrollSpeed / 60);
+                contentRef.current.scrollTop += scrollAmount;
+            }
+            animationFrameId = requestAnimationFrame(scroll);
+        };
+
+        if (isScrolling) {
+            animationFrameId = requestAnimationFrame(scroll);
+        }
+
+        return () => {
+            cancelAnimationFrame(animationFrameId);
+        };
+    }, [isScrolling, scrollSpeed]);
+
+    const handleStart = () => {
+        onStart();
+        setIsScrolling(true);
+    };
+
+    const handleStop = () => {
+        onStop();
+        setIsScrolling(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col overflow-hidden">
+                <div ref={contentRef} className="flex-grow p-8 md:p-12 overflow-y-scroll scroll-smooth">
+                    <p className="text-3xl md:text-4xl leading-relaxed text-gray-800 whitespace-pre-wrap">
+                        {script}
+                    </p>
+                </div>
+                <div className="bg-gray-50 border-t border-gray-200 p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <label htmlFor="speed" className="text-sm font-medium text-gray-600">Speed:</label>
+                        <input 
+                            type="range" 
+                            id="speed" 
+                            min="5" 
+                            max="50" 
+                            value={scrollSpeed} 
+                            onChange={(e) => setScrollSpeed(Number(e.target.value))} 
+                            className="w-32"
+                        />
+                    </div>
+                    <div className="flex items-center gap-4">
+                        {!isScrolling ? (
+                            <button onClick={handleStart} className="px-8 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105">
+                                Start Recording
+                            </button>
+                        ) : (
+                            <button onClick={handleStop} className="px-8 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-transform transform hover:scale-105">
+                                Stop Recording
+                            </button>
+                        )}
+                        <button onClick={onCancel} className="px-6 py-3 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 // --- Main Page Component ---
 
@@ -88,9 +163,11 @@ export default function AvatarPage() {
 
   const [selfie, setSelfie] = useState<File | string | null>(null);
   const [voice, setVoice] = useState<File | string | null>(null);
+  const [script, setScript] = useState('');
   const [selfieMode, setSelfieMode] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState('template1');
   const [showConsent, setShowConsent] = useState(false);
+  const [showTeleprompter, setShowTeleprompter] = useState(false);
   const [generationStep, setGenerationStep] = useState(''); // e.g., 'cloning', 'generating'
   const [isUploading, setIsUploading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -107,16 +184,14 @@ export default function AvatarPage() {
         const response = await fetch(`/api/session/${token}`);
         const result = await response.json();
         if (result.success && result.data) {
-          if (result.data.selfie_public_url) {
-            setSelfie(result.data.selfie_public_url);
-          }
-          if (result.data.voice_public_url) {
-            setVoice(result.data.voice_public_url);
-          }
+          if (result.data.selfie_public_url) setSelfie(result.data.selfie_public_url);
+          if (result.data.voice_public_url) setVoice(result.data.voice_public_url);
+          if (result.data.selected_script) setScript(result.data.selected_script);
+          console.log("Fetched existing assets for session.", result.data.selected_script);
         }
       } catch (error) {
         console.error("Failed to fetch existing assets:", error);
-      }
+      }1
     };
     fetchAssets();
   }, [token]);
@@ -169,10 +244,8 @@ export default function AvatarPage() {
       const formData = new FormData();
       formData.append('token', token);
       formData.append('file', file);
-      // Use a different endpoint for the full recording to be cleaned
-      const endpoint = voiceOption === 'full' ? '/api/voice/upload-full' : '/api/voice/upload';
 
-      const response = await fetch(endpoint, {
+      const response = await fetch('/api/voice/upload', {
         method: 'POST',
         body: formData,
       });
@@ -209,30 +282,55 @@ export default function AvatarPage() {
     setSelfieMode(false);
   }, []);
 
-  const startRecording = async () => {
+  const initMediaRecorder = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setVoice(null);
-      mediaRecorderRef.current = new MediaRecorder(stream);
-      audioChunksRef.current = [];
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setVoice(null);
+        mediaRecorderRef.current = new MediaRecorder(stream);
+        audioChunksRef.current = [];
 
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        audioChunksRef.current.push(event.data);
-      };
+        mediaRecorderRef.current.ondataavailable = (event) => {
+            audioChunksRef.current.push(event.data);
+        };
 
-      mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const audioFile = new File([audioBlob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
-        setVoice(audioFile);
-        uploadVoice(audioFile);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorderRef.current.start();
-      setIsRecording(true);
+        mediaRecorderRef.current.onstop = () => {
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+            const audioFile = new File([audioBlob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+            setVoice(audioFile);
+            uploadVoice(audioFile);
+            stream.getTracks().forEach(track => track.stop());
+        };
+        return true;
     } catch (err) {
-      console.error("Microphone access denied:", err);
-      alert("Microphone access is required to record your voice.");
+        console.error("Microphone access denied:", err);
+        alert("Microphone access is required to record your voice.");
+        return false;
+    }
+  }, [voiceOption, token]);
+
+  const handleRecordClick = async () => {
+    if (isRecording) {
+        stopRecording();
+    } else {
+        const ready = await initMediaRecorder();
+        if (!ready) return;
+
+        if (voiceOption === 'full') {
+            if (!script) {
+                alert("Script not loaded yet. Please wait a moment.");
+                return;
+            }
+            setShowTeleprompter(true);
+        } else {
+            startRecording();
+        }
+    }
+  };
+
+  const startRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive') {
+        mediaRecorderRef.current.start();
+        setIsRecording(true);
     }
   };
 
@@ -251,14 +349,13 @@ export default function AvatarPage() {
     if (voiceOption === 'clone') {
       setShowConsent(true);
     } else {
-      handleConsentAccept(); // For full recording, we can skip explicit consent for cloning
+      handleConsentAccept();
     }
   };
 
   const handleConsentAccept = async () => {
     setShowConsent(false);
     try {
-      // Record consent if it was a clone
       if (voiceOption === 'clone') {
         const consentResponse = await fetch('/api/consent', {
           method: 'POST',
@@ -268,13 +365,9 @@ export default function AvatarPage() {
         if (!consentResponse.ok) throw new Error('Failed to record consent.');
       }
       
-      let audioGenerationEndpoint = '/api/voice/clone-and-tts';
-      if (voiceOption === 'full') {
-        audioGenerationEndpoint = '/api/voice/clean-and-tts';
-      }
+      const audioGenerationEndpoint = voiceOption === 'full' ? '/api/voice/clean-and-tts' : '/api/voice/clone-and-tts';
 
-      // Step 1: Generate audio (either by cloning or cleaning)
-      setGenerationStep('cloning'); // Message can be generic here
+      setGenerationStep('cloning');
       const audioRes = await fetch(audioGenerationEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -285,7 +378,6 @@ export default function AvatarPage() {
         throw new Error(audioResult.details || 'Failed to generate audio.');
       }
 
-      // Step 2: Generate video with HeyGen
       setGenerationStep('generating');
       const heygenResponse = await fetch('/api/talking-video-heygen', {
         method: 'POST',
@@ -330,6 +422,14 @@ export default function AvatarPage() {
     <>
       {showConsent && <ConsentModal onAccept={handleConsentAccept} onDecline={() => setShowConsent(false)} />}
       {selfieMode && <SelfieCamera onSelfieTaken={handleSelfieTaken} onCancel={handleCancelSelfie} />}
+      {showTeleprompter && (
+        <Teleprompter 
+            script={script}
+            onStart={startRecording}
+            onStop={() => { stopRecording(); setShowTeleprompter(false); }}
+            onCancel={() => setShowTeleprompter(false)}
+        />
+      )}
       <div className="w-full min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
         <div className="max-w-4xl w-full">
           <header className="text-center mb-10">
@@ -388,7 +488,7 @@ export default function AvatarPage() {
                 )}
               </div>
               <button 
-                  onClick={isRecording ? stopRecording : startRecording} 
+                  onClick={handleRecordClick} 
                   className={`w-full px-6 py-3 text-white font-semibold rounded-md transition-colors ${isRecording ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-800 hover:bg-gray-900'}`}
                   disabled={isUploading || isUploadingVoice}
               >
