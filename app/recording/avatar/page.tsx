@@ -82,7 +82,6 @@ const Teleprompter = ({ script, onStart, onStop, onCancel }: { script: string, o
     const [isScrolling, setIsScrolling] = useState(false);
     const [scrollSpeed, setScrollSpeed] = useState(20); // pixels per second
     const contentRef = useRef<HTMLDivElement>(null);
-    const scrollRef = useRef<number>(0);
 
     useEffect(() => {
         let animationFrameId: number;
@@ -165,7 +164,6 @@ export default function AvatarPage() {
   const [voice, setVoice] = useState<File | string | null>(null);
   const [script, setScript] = useState('');
   const [selfieMode, setSelfieMode] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState('template1');
   const [showConsent, setShowConsent] = useState(false);
   const [showTeleprompter, setShowTeleprompter] = useState(false);
   const [generationStep, setGenerationStep] = useState(''); // e.g., 'cloning', 'generating'
@@ -173,6 +171,12 @@ export default function AvatarPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [isUploadingVoice, setIsUploadingVoice] = useState(false);
   const [voiceOption, setVoiceOption] = useState('clone'); // 'clone' or 'full'
+
+  // Background selection state
+  const [selectedBackgroundUrl, setSelectedBackgroundUrl] = useState<string | null>(null);
+  const [backgroundSearchQuery, setBackgroundSearchQuery] = useState('modern office');
+  const [searchedBackgrounds, setSearchedBackgrounds] = useState<any[]>([]);
+  const [isSearchingBackgrounds, setIsSearchingBackgrounds] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -187,21 +191,32 @@ export default function AvatarPage() {
           if (result.data.selfie_public_url) setSelfie(result.data.selfie_public_url);
           if (result.data.voice_public_url) setVoice(result.data.voice_public_url);
           if (result.data.selected_script) setScript(result.data.selected_script);
-          console.log("Fetched existing assets for session.", result.data.selected_script);
         }
       } catch (error) {
         console.error("Failed to fetch existing assets:", error);
-      }1
+      }
     };
     fetchAssets();
   }, [token]);
 
-  const mockTemplates = [
-    { id: 'template1', name: 'Modern Office', imageUrl: '/assets/modern_office.png' },
-    { id: 'template2', name: 'Casual Cafe', imageUrl: '/assets/casual_cafe.png' },
-    { id: 'template3', name: 'Abstract Gradient', imageUrl: '/assets/abstract_Gradient.png' },
-    { id: 'template4', name: 'Bookshelf', imageUrl: '/assets/licensed-image.png' },
-  ];
+  const handleBackgroundSearch = async () => {
+    if (!backgroundSearchQuery.trim()) return;
+    setIsSearchingBackgrounds(true);
+    try {
+        const response = await fetch(`/api/backgrounds/search?query=${encodeURIComponent(backgroundSearchQuery)}`);
+        const result = await response.json();
+        if (result.success) {
+            setSearchedBackgrounds(result.images);
+        } else {
+            alert(`Failed to search for backgrounds: ${result.message}`);
+        }
+    } catch (error) {
+        console.error("Background search error:", error);
+        alert("An error occurred while searching for backgrounds.");
+    } finally {
+        setIsSearchingBackgrounds(false);
+    }
+  };
 
   const uploadSelfie = async (file: File) => {
     if (!token) {
@@ -346,6 +361,10 @@ export default function AvatarPage() {
       alert("Please provide both a selfie and a voice recording.");
       return;
     }
+    if (!selectedBackgroundUrl) {
+        alert("Please select a background.");
+        return;
+    }
     if (voiceOption === 'clone') {
       setShowConsent(true);
     } else {
@@ -382,7 +401,7 @@ export default function AvatarPage() {
       const heygenResponse = await fetch('/api/talking-video-heygen', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, backgroundUrl: selectedBackgroundUrl }),
       });
 
       const heygenResult = await heygenResponse.json();
@@ -503,16 +522,32 @@ export default function AvatarPage() {
 
             <div className="bg-white p-8 rounded-lg shadow-md">
               <h3 className="text-xl font-semibold mb-4">2. Choose a Style</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {mockTemplates.map(template => (
-                  <TemplateTile 
-                    key={template.id} 
-                    name={template.name} 
-                    imageUrl={template.imageUrl}
-                    selected={selectedTemplate === template.id} 
-                    onClick={() => setSelectedTemplate(template.id)} />
-                ))}
+              
+              <div>
+                <h4 className="text-lg font-semibold text-gray-800 mb-4">Search for a background</h4>
+                <div className="flex gap-2 mb-4">
+                    <input 
+                        type="text"
+                        value={backgroundSearchQuery}
+                        onChange={(e) => setBackgroundSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleBackgroundSearch()}
+                        placeholder="e.g., sunny beach, modern library"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                    <button onClick={handleBackgroundSearch} disabled={isSearchingBackgrounds} className="px-6 py-2 bg-gray-800 text-white font-semibold rounded-md hover:bg-gray-900 disabled:bg-gray-400">
+                        {isSearchingBackgrounds ? '...' : 'Search'}
+                    </button>
+                </div>
+                {isSearchingBackgrounds && <p className="text-center text-gray-500">Searching...</p>}
+                <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                    {searchedBackgrounds.map(image => (
+                        <div key={image.id} onClick={() => setSelectedBackgroundUrl(image.url)} className={`rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${selectedBackgroundUrl === image.url ? 'border-indigo-600' : 'border-transparent'}`}>
+                            <img src={image.url} alt={image.alt} className="w-full h-full object-cover aspect-video bg-gray-100" />
+                        </div>
+                    ))}
+                </div>
               </div>
+
             </div>
           </div>
 

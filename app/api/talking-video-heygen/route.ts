@@ -16,7 +16,7 @@ async function parseResponseSafe(res: Response) {
 
 export async function POST(req: NextRequest) {
     try {
-        const { token } = await req.json();
+        const { token, backgroundUrl } = await req.json();
         if (!token) {
             return NextResponse.json({ success: false, message: 'Missing token.' }, { status: 400 });
         }
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
         // 3. Generate the final video with the selfie and the generated speech
         const video_title = `Endorser - ${script.substring(0, 32)}${script.length > 32 ? '…' : ''}`;
-        const av4Payload = {
+        const av4Payload: any = {
             image_key: image_key,
             video_title: video_title,
             audio_url: generatedAudioUrl,
@@ -72,6 +72,10 @@ export async function POST(req: NextRequest) {
             caption: true,
             test: true,
         };
+        if (backgroundUrl) {
+            av4Payload.background = backgroundUrl;
+        }
+
         const av4Url = `${HEYGEN_BASE}/v2/video/av4/generate`;
         const genRes = await fetch(av4Url, {
             method: 'POST',
