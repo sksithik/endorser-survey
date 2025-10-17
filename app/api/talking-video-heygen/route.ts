@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
 
         if (!id || !token) return NextResponse.json({ error: 'Missing id or token' }, { status: 400 })
 
-        const r = await fetch(`${HEYGEN_BASE}/v2/video/status?video_id=${encodeURIComponent(id)}`, { headers: { 'x-api-key': key } });
+        const r = await fetch(`${HEYGEN_BASE}/v1/video_status.get?video_id=${encodeURIComponent(id)}`, { headers: { 'x-api-key': key } });
         const parsed = await parseResponseSafe(r);
         const data = parsed.asJson || {};
 
