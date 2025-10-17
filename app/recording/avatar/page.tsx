@@ -95,6 +95,7 @@ export default function AvatarPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isUploadingVoice, setIsUploadingVoice] = useState(false);
+  const [voiceOption, setVoiceOption] = useState('clone'); // 'clone' or 'full'
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -168,8 +169,10 @@ export default function AvatarPage() {
       const formData = new FormData();
       formData.append('token', token);
       formData.append('file', file);
+      // Use a different endpoint for the full recording to be cleaned
+      const endpoint = voiceOption === 'full' ? '/api/voice/upload-full' : '/api/voice/upload';
 
-      const response = await fetch('/api/voice/upload', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
@@ -245,30 +248,41 @@ export default function AvatarPage() {
       alert("Please provide both a selfie and a voice recording.");
       return;
     }
-    setShowConsent(true);
+    if (voiceOption === 'clone') {
+      setShowConsent(true);
+    } else {
+      handleConsentAccept(); // For full recording, we can skip explicit consent for cloning
+    }
   };
 
   const handleConsentAccept = async () => {
     setShowConsent(false);
     try {
-      // Record consent first
-      const consentResponse = await fetch('/api/consent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
-      });
-      if (!consentResponse.ok) throw new Error('Failed to record consent.');
+      // Record consent if it was a clone
+      if (voiceOption === 'clone') {
+        const consentResponse = await fetch('/api/consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
+        if (!consentResponse.ok) throw new Error('Failed to record consent.');
+      }
       
-      // Step 1: Clone voice and generate TTS audio
-      setGenerationStep('cloning');
-      const cloneRes = await fetch('/api/voice/clone-and-tts', {
+      let audioGenerationEndpoint = '/api/voice/clone-and-tts';
+      if (voiceOption === 'full') {
+        audioGenerationEndpoint = '/api/voice/clean-and-tts';
+      }
+
+      // Step 1: Generate audio (either by cloning or cleaning)
+      setGenerationStep('cloning'); // Message can be generic here
+      const audioRes = await fetch(audioGenerationEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),
       });
-      const cloneResult = await cloneRes.json();
-      if (!cloneRes.ok || !cloneResult.success) {
-        throw new Error(cloneResult.details || 'Failed to clone voice and generate audio.');
+      const audioResult = await audioRes.json();
+      if (!audioRes.ok || !audioResult.success) {
+        throw new Error(audioResult.details || 'Failed to generate audio.');
       }
 
       // Step 2: Generate video with HeyGen
@@ -298,7 +312,7 @@ export default function AvatarPage() {
   if (isProcessing) {
     let message = 'Generating your AI Avatar video...';
     if (generationStep === 'cloning') {
-        message = 'Cloning your voice and generating script audio...';
+        message = 'Processing your voice and generating script audio...';
     }
     return (
       <div className="w-full min-h-screen flex flex-col items-center justify-center text-center p-4">
@@ -354,6 +368,16 @@ export default function AvatarPage() {
 
               {/* Voice Recording Section */}
               <h4 className="text-lg font-semibold text-gray-800 mt-8 mb-4 border-t pt-6">Your Voice</h4>
+              
+              <div className="flex items-center justify-center mb-4 bg-gray-100 p-1 rounded-lg">
+                <button onClick={() => setVoiceOption('clone')} className={`w-full text-center px-4 py-2 rounded-md font-semibold transition-colors ${voiceOption === 'clone' ? 'bg-white text-indigo-700 shadow' : 'bg-transparent text-gray-500'}`}>
+                  Voice Clone
+                </button>
+                <button onClick={() => setVoiceOption('full')} className={`w-full text-center px-4 py-2 rounded-md font-semibold transition-colors ${voiceOption === 'full' ? 'bg-white text-indigo-700 shadow' : 'bg-transparent text-gray-500'}`}>
+                  Full Audio Recording
+                </button>
+              </div>
+
               <div className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center mb-4 bg-gray-50 min-h-[80px]">
                 {isUploadingVoice ? (
                     <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-10 w-10"></div>
@@ -370,7 +394,11 @@ export default function AvatarPage() {
               >
                   {isRecording ? 'Stop Recording' : 'Record Voice'}
               </button>
-              <p className="text-xs text-gray-500 mt-2 text-center">Record a few seconds of your voice for cloning.</p>
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                {voiceOption === 'clone' 
+                  ? 'Record a few seconds of your voice for cloning.' 
+                  : "Record the entire script. We'll clean up any mistakes."}
+              </p>
             </div>
 
             <div className="bg-white p-8 rounded-lg shadow-md">
