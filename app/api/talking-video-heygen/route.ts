@@ -68,7 +68,8 @@ export async function POST(req: NextRequest) {
             video_title: video_title,
             audio_url: generatedAudioUrl,
             gender: "male",
-            video_orientation: 'portrait',
+            video_orientation: 'landscape',
+            caption: true,
             test: true,
         };
         const av4Url = `${HEYGEN_BASE}/v2/video/av4/generate`;
