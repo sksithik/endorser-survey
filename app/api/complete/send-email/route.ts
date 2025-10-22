@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 
     const msg = {
       to: email,
-      from: process.env.SENDGRID_FROM_EMAIL, // CHANGE THIS to your verified sender
+      from: process.env.SENDGRID_FROM_EMAIL!, // CHANGE THIS to your verified sender
       subject: `Thank You for Your Feedback on ${survey?.projectName || 'Our Project'}`,
       html: createEmailTemplate(final_video_url, survey),
     };
