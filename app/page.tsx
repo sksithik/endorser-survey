@@ -13,11 +13,6 @@ type BusinessBranding = {
   description?: string;
 };
 
-type ValidationResponse = {
-  success: boolean;
-  branding: BusinessBranding;
-};
-
 // A component to display a single example tile
 const ExampleTile = ({ title, icon }: { title: string; icon: React.ReactNode }) => (
   <div className="border border-gray-200 rounded-lg bg-white overflow-hidden shadow-sm">

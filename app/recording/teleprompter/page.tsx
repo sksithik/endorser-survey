@@ -14,6 +14,7 @@ import {
   PanelsTopLeft
 } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient'
+import Link from 'next/link';
 
 export default function TeleprompterPage() {
   const searchParams = useSearchParams();
@@ -336,6 +337,7 @@ export default function TeleprompterPage() {
                     <div className="mt-2 flex gap-3">
                       <a className="btn" href={videoBlobUrl} download={`recording-${Date.now()}.webm`}>Download</a>
                       <button className="btn-secondary btn" onClick={() => setVideoBlobUrl('')}>Re-record</button>
+                      <Link href={`/share?token=${token}`} className="btn">Next</Link>
                     </div>
                   </div>
                 )}
