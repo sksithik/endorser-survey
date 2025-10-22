@@ -2,6 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Mail, Twitter, Facebook, Linkedin, Copy, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -128,6 +129,11 @@ function SharePageContent() {
                                 <span>LinkedIn</span>
                             </a>
                         </div>
+                    </div>
+                    <div className="mt-8 text-center">
+                        <Link href={`/complete?token=${token}`} className="btn">
+                            I'm Done Sharing
+                        </Link>
                     </div>
                 </div>
             </div>
