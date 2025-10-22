@@ -101,6 +101,7 @@ export default function PreviewPage() {
                 <div className="flex flex-wrap items-center justify-center gap-4 border-t border-gray-200 pt-6">
                     <a href={videoUrl} download className="px-5 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 no-underline">Download MP4</a>
                     <button onClick={() => navigator.clipboard.writeText(window.location.href)} className="px-5 py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-800">Copy Share Link</button>
+                    <Link href={`/share?token=${token}`} className="px-5 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 no-underline">Next</Link>
                 </div>
             </div>
           )}
