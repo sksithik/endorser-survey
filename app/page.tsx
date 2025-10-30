@@ -3,6 +3,9 @@
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import LandingPage from '@/components/LandingPage';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import Header from '@/components/Header';
 
 // Mock data - in a real app, this would come from the API
 type BusinessBranding = {
@@ -15,12 +18,12 @@ type BusinessBranding = {
 
 // A component to display a single example tile
 const ExampleTile = ({ title, icon }: { title: string; icon: React.ReactNode }) => (
-  <div className="border border-gray-200 rounded-lg bg-white overflow-hidden shadow-sm">
-    <div className="w-full aspect-video bg-gray-100 flex items-center justify-center text-gray-400">
+  <div className="border border-input rounded-lg bg-card overflow-hidden shadow-sm">
+    <div className="w-full aspect-video bg-muted flex items-center justify-center text-muted-foreground">
       {icon}
     </div>
     <div className="p-3">
-      <p className="font-semibold text-sm text-gray-700 text-center">{title}</p>
+      <p className="font-semibold text-sm text-foreground text-center">{title}</p>
     </div>
   </div>
 );
@@ -28,10 +31,34 @@ const ExampleTile = ({ title, icon }: { title: string; icon: React.ReactNode }) 
 export default function OnboardingPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
+  const supabase = createClientComponentClient();
 
   const [isValidating, setIsValidating] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [branding, setBranding] = useState<BusinessBranding | null>(null);
+
+  useEffect(() => {
+    const updateUserRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && !user.user_metadata.app_role) {
+        try {
+          await fetch('/api/auth/update-user-role', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ app_role: 'endorser' }),
+          });
+          // Refresh the user session to get the updated metadata
+          await supabase.auth.refreshSession();
+        } catch (error) {
+          console.error('Error updating user role:', error);
+        }
+      }
+    };
+
+    updateUserRole();
+  }, [supabase.auth]);
 
   // Icons for example tiles
   const UserIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
@@ -40,7 +67,6 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (!token) {
-      setError('No invitation token provided. Please use the link from your invitation.');
       setIsValidating(false);
       return;
     }
@@ -70,11 +96,15 @@ export default function OnboardingPage() {
     validateToken();
   }, [token]);
 
+  if (!token) {
+    return <LandingPage />;
+  }
+
   if (isValidating) {
     return (
       <div className="w-full min-h-screen flex flex-col items-center justify-center text-center p-4">
-        <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
-        <h2 className="text-xl font-semibold text-gray-700">Validating your invitation...</h2>
+        <Icons.spinner className="h-12 w-12 animate-spin" />
+        <h2 className="text-xl font-semibold text-foreground mt-4">Validating your invitation...</h2>
       </div>
     );
   }
@@ -82,10 +112,11 @@ export default function OnboardingPage() {
   if (error || !branding) {
     return (
       <div className="w-full min-h-screen flex flex-col items-center justify-center text-center p-4">
-        <div className="max-w-md">
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Oops! Something went wrong.</h1>
-          <p className="text-gray-600">{error || 'Could not load invitation details.'}</p>
-          <p className="text-sm text-gray-500 mt-4">
+        <Header />
+        <div className="max-w-md mt-24">
+          <h1 className="text-2xl font-bold text-foreground mb-2">Oops! Something went wrong.</h1>
+          <p className="text-muted-foreground">{error || 'Could not load invitation details.'}</p>
+          <p className="text-sm text-muted-foreground mt-4">
             Please check the link and try again. If the problem persists, contact the business that invited you.
           </p>
         </div>
@@ -94,24 +125,25 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="w-full min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-      <div className="max-w-4xl w-full text-center">
+    <div className="w-full min-h-screen flex flex-col items-center bg-background p-4">
+      <Header />
+      <div className="max-w-4xl w-full text-center mt-24">
         <header className="mb-10">
           {/* In a real app, the logo would be an <Image> component */}
-          <div className="h-12 w-12 mx-auto mb-4 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+          <div className="h-12 w-12 mx-auto mb-4 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold text-xl">
             {branding.name.charAt(0)}
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground">
             {branding.name} wants your feedback!
           </h1>
-          <p className="text-lg text-gray-600 mt-2">
+          <p className="text-lg text-muted-foreground mt-2">
             {branding.description}
           </p>
         </header>
 
         {branding.videoUrl && (
           <section className="mb-10 max-w-3xl mx-auto">
-            <div className="rounded-xl overflow-hidden shadow-2xl shadow-indigo-500/20 border border-gray-200">
+            <div className="rounded-xl overflow-hidden shadow-2xl shadow-primary/20 border border-border">
               <video
                 src={branding.videoUrl}
                 className="w-full h-auto aspect-video"
@@ -128,7 +160,7 @@ export default function OnboardingPage() {
         )}
 
         <section className="mb-10">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-6">See how others have shared their story</h2>
+          <h2 className="text-2xl font-semibold text-foreground mb-6">See how others have shared their story</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <ExampleTile title="AI Avatar Example" icon={<UserIcon />} />
             <ExampleTile title="Real Camera Example" icon={<CameraIcon />} />
@@ -139,14 +171,14 @@ export default function OnboardingPage() {
         <section>
           <Link
             href={`/questionnaire?token=${token}`}
-            className="inline-block bg-indigo-600 text-white font-bold text-lg px-8 py-4 rounded-lg shadow-md hover:bg-indigo-700 transition-colors"
+            className="inline-block bg-primary text-primary-foreground font-bold text-lg px-8 py-4 rounded-lg shadow-md hover:bg-primary/90 transition-colors"
             style={{ backgroundColor: branding.themeColor }}
           >
             Begin My Review
           </Link>
         </section>
 
-        <footer className="mt-16 text-center text-gray-500 text-sm">
+        <footer className="mt-16 text-center text-muted-foreground text-sm">
           Powered by EndorseGen
         </footer>
       </div>
