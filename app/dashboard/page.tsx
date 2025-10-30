@@ -8,9 +8,10 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { User } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import  Label } from '@/components/ui/label';
 import { Icons } from '@/components/ui/icons';
 import Header from '@/components/Header';
+import { motion } from 'framer-motion';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -75,34 +76,79 @@ export default function DashboardPage() {
   return (
     <div className="w-full min-h-screen flex flex-col items-center p-4">
       <Header />
-      <div className="max-w-md w-full space-y-6 mt-24">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-4xl w-full space-y-8 mt-24"
+      >
         <div className="text-center">
-          <h1 className="text-3xl font-bold">My Profile</h1>
-          <p className="text-muted-foreground">View and update your profile information.</p>
+          <h1 className="text-4xl font-bold text-foreground">Welcome, {user.user_metadata.full_name || user.email}!</h1>
+          <p className="text-lg text-muted-foreground mt-2">Manage your profile and explore your dashboard.</p>
         </div>
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" value={user.email} disabled />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" type="text" {...form.register('name')} />
-            {form.formState.errors.name && (
-              <p className="text-red-500 text-sm">{form.formState.errors.name.message}</p>
-            )}
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="bg-card text-card-foreground p-6 rounded-lg shadow-lg border border-border space-y-4"
+          >
+            <h2 className="text-2xl font-semibold">Profile Information</h2>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" value={user.email} disabled className="bg-muted/50" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <Input id="name" type="text" {...form.register('name')} />
+                {form.formState.errors.name && (
+                  <p className="text-destructive text-sm">{form.formState.errors.name.message}</p>
+                )}
+              </div>
 
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          {success && <p className="text-green-500 text-sm">Profile updated successfully!</p>}
+              {error && <p className="text-destructive text-sm">{error}</p>}
+              {success && <p className="text-green-500 text-sm">Profile updated successfully!</p>}
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
-            Update Profile
-          </Button>
-        </form>
-      </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
+                Update Profile
+              </Button>
+            </form>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="bg-card text-card-foreground p-6 rounded-lg shadow-lg border border-border space-y-4"
+          >
+            <h2 className="text-2xl font-semibold">Quick Actions</h2>
+            <div className="space-y-2">
+              <Button variant="outline" className="w-full" onClick={() => router.push('/rewards')}>
+                View My Rewards
+              </Button>
+              <Button variant="outline" className="w-full" onClick={() => router.push('/settings')}>
+                Account Settings
+              </Button>
+              <Button variant="destructive" className="w-full" onClick={() => supabase.auth.signOut()}>
+                Logout
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="bg-card text-card-foreground p-6 rounded-lg shadow-lg border border-border space-y-4"
+        >
+          <h2 className="text-2xl font-semibold">Recent Activity</h2>
+          <p className="text-muted-foreground">No recent activity to display.</p>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }
