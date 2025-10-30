@@ -6,6 +6,8 @@ import Link from 'next/link';
 import LandingPage from '@/components/LandingPage';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import Header from '@/components/Header';
+import { motion } from 'framer-motion';
+import { Icons } from '@/components/ui/icons';
 
 // Mock data - in a real app, this would come from the API
 type BusinessBranding = {
@@ -18,14 +20,19 @@ type BusinessBranding = {
 
 // A component to display a single example tile
 const ExampleTile = ({ title, icon }: { title: string; icon: React.ReactNode }) => (
-  <div className="border border-input rounded-lg bg-card overflow-hidden shadow-sm">
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5 }}
+    className="border border-input rounded-lg bg-card overflow-hidden shadow-sm"
+  >
     <div className="w-full aspect-video bg-muted flex items-center justify-center text-muted-foreground">
       {icon}
     </div>
     <div className="p-3">
       <p className="font-semibold text-sm text-foreground text-center">{title}</p>
     </div>
-  </div>
+  </motion.div>
 );
 
 export default function OnboardingPage() {
@@ -127,22 +134,36 @@ export default function OnboardingPage() {
   return (
     <div className="w-full min-h-screen flex flex-col items-center bg-background p-4">
       <Header />
-      <div className="max-w-4xl w-full text-center mt-24">
-        <header className="mb-10">
-          {/* In a real app, the logo would be an <Image> component */}
-          <div className="h-12 w-12 mx-auto mb-4 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold text-xl">
-            {branding.name.charAt(0)}
+      <div
+        className="max-w-6xl w-full text-center mt-24 space-y-16"
+      >
+        {/* Hero Section */}
+        <section className="relative py-20 md:py-32 overflow-hidden rounded-xl bg-gradient-to-br from-primary/20 to-background border border-border shadow-lg">
+          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'url(/assets/abstract_Gradient.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+          <div
+            className="relative z-10 max-w-3xl mx-auto px-4"
+          >
+            <h1 className="text-5xl md:text-7xl font-extrabold leading-tight text-foreground mb-6">
+              {branding.name} wants your feedback!
+            </h1>
+            <p className="text-xl md:text-2xl text-muted-foreground mb-8">
+              {branding.description}
+            </p>
+            <Link
+              href={`/questionnaire?token=${token}`}
+              className="inline-block bg-primary text-primary-foreground font-bold text-lg px-10 py-5 rounded-full shadow-xl hover:bg-primary/90 transition-all transform hover:scale-105"
+              style={{ backgroundColor: branding.themeColor }}
+            >
+              Begin My Review
+            </Link>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground">
-            {branding.name} wants your feedback!
-          </h1>
-          <p className="text-lg text-muted-foreground mt-2">
-            {branding.description}
-          </p>
-        </header>
+        </section>
 
+        {/* Video Section */}
         {branding.videoUrl && (
-          <section className="mb-10 max-w-3xl mx-auto">
+          <section
+            className="max-w-4xl mx-auto"
+          >
             <div className="rounded-xl overflow-hidden shadow-2xl shadow-primary/20 border border-border">
               <video
                 src={branding.videoUrl}
@@ -159,26 +180,35 @@ export default function OnboardingPage() {
           </section>
         )}
 
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold text-foreground mb-6">See how others have shared their story</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <ExampleTile title="AI Avatar Example" icon={<UserIcon />} />
+        {/* Features Section */}
+        <section>
+          <h2
+            className="text-4xl font-bold text-foreground mb-10"
+          >
+            See how others have shared their story
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {/* <ExampleTile title="AI Avatar Example" icon={<UserIcon />} />
             <ExampleTile title="Real Camera Example" icon={<CameraIcon />} />
-            <ExampleTile title="Slideshow Example" icon={<ImageIcon />} />
+            <ExampleTile title="Slideshow Example" icon={<ImageIcon />} /> */}
           </div>
         </section>
 
-        <section>
+        {/* Final Call to Action */}
+        <section
+          className="py-16 bg-card rounded-xl border border-border shadow-lg"
+        >
+          <h2 className="text-3xl font-bold text-foreground mb-6">Ready to share your story?</h2>
           <Link
             href={`/questionnaire?token=${token}`}
-            className="inline-block bg-primary text-primary-foreground font-bold text-lg px-8 py-4 rounded-lg shadow-md hover:bg-primary/90 transition-colors"
+            className="inline-block bg-primary text-primary-foreground font-bold text-lg px-10 py-5 rounded-full shadow-xl hover:bg-primary/90 transition-all transform hover:scale-105"
             style={{ backgroundColor: branding.themeColor }}
           >
             Begin My Review
           </Link>
         </section>
 
-        <footer className="mt-16 text-center text-muted-foreground text-sm">
+        <footer>
           Powered by EndorseGen
         </footer>
       </div>
