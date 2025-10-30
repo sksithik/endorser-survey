@@ -44,7 +44,7 @@ export default function Register() {
     setLoading(true);
     setError(null);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
         options: {
@@ -57,6 +57,23 @@ export default function Register() {
 
       if (error) {
         setError(error.message);
+      } else if (data.user) {
+        // Insert into endorser_users table
+        const { error: insertError } = await supabase
+          .from('endorser_users')
+          .insert({
+            id: data.user.id,
+            email: values.email,
+            full_name: values.name,
+            total_points: 0, // Default value
+          });
+
+        if (insertError) {
+          console.error('Error inserting into endorser_users:', insertError);
+          setError('Registration successful, but failed to create user profile.');
+        } else {
+          setSuccess(true);
+        }
       } else {
         setSuccess(true);
       }

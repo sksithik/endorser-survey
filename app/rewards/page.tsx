@@ -1,16 +1,73 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { Database } from '@/lib/database.types';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { GiftIcon, StarIcon } from 'lucide-react';
 
 export default function RewardsPage() {
-  // Placeholder data - in a real app, this would come from an API
-  const totalPoints = 1250;
+  const supabase = createClientComponentClient<Database>();
+  const [totalPoints, setTotalPoints] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const giftCards = [
     { id: 1, name: 'Amazon Gift Card', points: 500, value: '$50' },
     { id: 2, name: 'Starbucks Gift Card', points: 250, value: '$25' },
     { id: 3, name: 'Visa Gift Card', points: 1000, value: '$100' },
   ];
+
+  useEffect(() => {
+    const fetchUserPoints = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+          const { data, error } = await supabase
+            .from('endorser_users')
+            .select('total_points')
+            .eq('id', user.id)
+            .single();
+
+          if (error) {
+            throw error;
+          }
+
+          if (data) {
+            setTotalPoints(data.total_points);
+          }
+        } else {
+          setError('User not logged in.');
+        }
+      } catch (err: any) {
+        console.error('Error fetching user points:', err.message);
+        setError('Failed to load points.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserPoints();
+  }, [supabase]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500 text-white p-4 sm:p-8 flex items-center justify-center">
+        <p className="text-xl">Loading rewards...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500 text-white p-4 sm:p-8 flex items-center justify-center">
+        <p className="text-xl text-red-300">Error: {error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500 text-white p-4 sm:p-8">
@@ -33,7 +90,7 @@ export default function RewardsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-6xl font-extrabold text-yellow-300 drop-shadow-md">
-                {totalPoints}
+                {totalPoints !== null ? totalPoints : '--'}
               </div>
               <p className="text-sm text-purple-200 mt-2">Points earned so far</p>
             </CardContent>
@@ -72,9 +129,9 @@ export default function RewardsPage() {
                   </span>
                   <Button
                     className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-5 rounded-full shadow-md"
-                    disabled={totalPoints < card.points}
+                    disabled={totalPoints === null || totalPoints < card.points}
                   >
-                    {totalPoints >= card.points ? 'Redeem' : 'Earn More'}
+                    {totalPoints !== null && totalPoints >= card.points ? 'Redeem' : 'Earn More'}
                   </Button>
                 </CardContent>
               </Card>
