@@ -2,144 +2,209 @@
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-// Re-using the consent modal from the Avatar page concept
-const ConsentModal = ({ onAccept, onDecline }: { onAccept: () => void, onDecline: () => void }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-xl p-8 max-w-lg w-full">
-            <h2 className="text-2xl font-bold mb-4">Voice Cloning Consent</h2>
-            <p className="text-gray-600 mb-6">
-                To create a Slideshow video, we need to generate a voice-over for your script. This requires your consent to use our voice generation technology.
-            </p>
-            <p className="text-sm text-gray-500 mb-6">
-                By clicking "I Accept", you consent to the use of your voice for the purpose of creating this video testimonial.
-            </p>
-            <div className="flex justify-end gap-4">
-                <button onClick={onDecline} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100">Decline</button>
-                <button onClick={onAccept} className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">I Accept</button>
-            </div>
-        </div>
-    </div>
-);
+
+
+interface SlideItem {
+  image: File;
+  text: string;
+}
+
+// Helper: safely parse JSON, falling back to text when server returns HTML error page
+async function safeParseJson(res: Response): Promise<any> {
+  const ct = res.headers.get('content-type') || '';
+  if (ct.includes('application/json')) {
+    try { return await res.json(); } catch (e) { console.warn('Failed to parse JSON despite JSON content-type', e); }
+  }
+  try {
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { return { raw: text }; }
+  } catch { return null; }
+}
 
 export default function SlideshowPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
-  const [selfie, setSelfie] = useState<File | null>(null);
-  const [showConsent, setShowConsent] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [slides, setSlides] = useState<SlideItem[]>([]);
+  const [script, setScript] = useState<string>('');
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoadingScript, setIsLoadingScript] = useState(false);
+  // Auto-load previously selected script via dedicated API (server-side supabaseAdmin).
+  useEffect(() => {
+    let cancelled = false;
+    async function loadScript() {
+      if (!token || script.trim()) return; // don't overwrite user edits
+      setIsLoadingScript(true);
+      try {
+        const res = await fetch(`/api/script/get?token=${encodeURIComponent(token)}`);
+        if (!res.ok) {
+          const t = await res.text().catch(()=>'');
+          console.warn('Script get failed status', res.status, t.slice(0,120));
+          return;
+        }
+        const data = await safeParseJson(res);
+        const loaded = data?.selected_script as string | null;
+        if (!cancelled && loaded) setScript(loaded);
+      } catch (e) {
+        console.warn('Failed loading existing script', e);
+      } finally {
+        if (!cancelled) setIsLoadingScript(false);
+      }
+    }
+    loadScript();
+    return () => { cancelled = true; };
+  }, [token]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      setSelfie(event.target.files[0]);
+    if (event.target.files) {
+      const newSlides = Array.from(event.target.files).map(file => ({ image: file, text: '' }));
+      setSlides([...slides, ...newSlides]);
     }
   };
 
-  const handleGenerateClick = () => {
-    if (!selfie) {
-      alert("Please upload a selfie first.");
-      return;
-    }
-    setShowConsent(true);
+  const handleTextChange = (index: number, text: string) => {
+    const newSlides = [...slides];
+    newSlides[index].text = text;
+    setSlides(newSlides);
   };
 
-  const handleConsentAccept = async () => {
-    setShowConsent(false);
-    setIsGenerating(true);
+  async function uploadImages(): Promise<string[]> {
+    return Promise.all(slides.map(async slide => {
+      const formData = new FormData();
+      formData.append('token', token || '');
+      formData.append('file', slide.image);
+      const res = await fetch('/api/selfie/upload', { method: 'POST', body: formData });
+      const data = await safeParseJson(res);
+      if (!res.ok || !data.publicUrl) throw new Error('Image upload failed');
+      return data.publicUrl as string;
+    }));
+  }
 
+  const handleGenerateAudio = async () => {
     try {
-      const consentResponse = await fetch('/api/consent', {
+      setError(null);
+      setIsGeneratingAudio(true);
+      setAudioUrl(null);
+      if (!script.trim()) {
+        setError('Script is empty. Add text to generate voice.');
+        return;
+      }
+      const res = await fetch('/api/voice/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, script }),
       });
-
-      if (!consentResponse.ok) {
-        throw new Error('Failed to record consent.');
-      }
-
-      console.log("Consent recorded. Starting slideshow generation...");
-
-      // Simulate API call for slideshow generation
-      await new Promise(resolve => setTimeout(resolve, 3000));
-
-      console.log("Slideshow generation complete.");
-      router.push(`/preview?token=${token}&type=slideshow`);
-
-    } catch (error) {
-      console.error(error);
-      alert("An error occurred. Please try again.");
+      const data = await safeParseJson(res);
+      if (!res.ok) throw new Error(data?.details || 'Voice generation failed');
+      setAudioUrl(data.generated_audio_url);
+    } catch (e: any) {
+      setError(e.message || String(e));
     } finally {
-      setIsGenerating(false);
+      setIsGeneratingAudio(false);
     }
   };
 
-  const handleConsentDecline = () => {
-    setShowConsent(false);
+  const handleGenerateVideo = async () => {
+    try {
+      setError(null);
+      setIsGeneratingVideo(true);
+      if (slides.length === 0) {
+        setError('Please upload at least one image.');
+        return;
+      }
+      const imageUrls = await uploadImages();
+      const texts = slides.map(slide => slide.text);
+      const body: any = { token, images: imageUrls, texts };
+      if (audioUrl) body.audioUrl = audioUrl;
+      const res = await fetch('/api/slideshow/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await safeParseJson(res);
+      if (!res.ok || !data.success) throw new Error(data?.details || 'Slideshow generation failed');
+      router.push(`/preview?token=${token}&type=slideshow`);
+    } catch (e: any) {
+      setError(e.message || String(e));
+    } finally {
+      setIsGeneratingVideo(false);
+    }
   };
-
-  if (isGenerating) {
-    return (
-      <div className="w-full min-h-screen flex flex-col items-center justify-center text-center p-4">
-        <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
-        <h2 className="text-xl font-semibold text-gray-700">Generating your Slideshow video...</h2>
-        <p className="text-gray-500">This may take a moment.</p>
-      </div>
-    );
-  }
 
   return (
     <>
-      {showConsent && <ConsentModal onAccept={handleConsentAccept} onDecline={handleConsentDecline} />}
       <div className="w-full min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-        <div className="max-w-2xl w-full">
+        <div className="max-w-4xl w-full">
           <header className="text-center mb-10">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900">Create a Slideshow Video</h1>
-            <p className="text-lg text-gray-600 mt-2">A simple, clean video with your photo and a voice-over.</p>
+            <p className="text-lg text-gray-600 mt-2">Upload images, add per-slide text, optionally enter a script to generate voice narration, then create your slideshow video.</p>
           </header>
 
           <div className="bg-white p-8 rounded-lg shadow-md">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                {/* Left: Upload */}
-                <div>
-                    <h3 className="text-xl font-semibold mb-4">1. Upload Your Selfie</h3>
-                    <div className="w-full aspect-square border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mb-4">
-                        {selfie ? (
-                        <img src={URL.createObjectURL(selfie)} alt="Selfie preview" className="w-full h-full object-cover rounded-lg" />
-                        ) : (
-                        <p className="text-gray-500">Image Preview</p>
-                        )}
-                    </div>
-                    <input type="file" accept="image/*" onChange={handleFileChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
-                </div>
-                {/* Right: Preview */}
-                <div>
-                    <h3 className="text-xl font-semibold mb-4">2. Style Preview</h3>
-                    <div className="w-full aspect-square border border-gray-200 rounded-lg flex items-center justify-center bg-gray-100 p-4">
-                        <div className="text-center">
-                            <div className="w-24 h-24 rounded-full mx-auto mb-4 bg-gray-300 flex items-center justify-center">
-                                <span className="text-gray-500">Your Selfie</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-lg shadow-md">
-                                <p className="text-sm text-gray-700">"The script will be spoken here with animated captions..."</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold mb-4">1. Upload Your Images</h3>
+              <input type="file" accept="image/*" multiple onChange={handleFileChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-semibold mb-4">2. Add Text to Your Slides</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {slides.map((slide, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg p-4">
+                    <img src={URL.createObjectURL(slide.image)} alt={`Slide ${index + 1}`} className="w-full h-32 object-cover rounded-lg mb-4" />
+                    <input
+                      type="text"
+                      value={slide.text}
+                      onChange={(e) => handleTextChange(index, e.target.value)}
+                      placeholder={`Text for slide ${index + 1}`}
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-10">
+              <h3 className="text-xl font-semibold mb-4">3. Voice Narration</h3>
+              {isLoadingScript && <p className="text-sm text-gray-500 mb-2">Loading saved script…</p>}
+              <textarea
+                className="w-full min-h-[140px] p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+                placeholder="Narration script (auto-loaded if previously selected)"
+                value={script}
+                onChange={(e) => setScript(e.target.value)}
+                disabled={isLoadingScript}
+              />
+              <div className="flex items-center gap-4 mt-4">
+                <button
+                  type="button"
+                  onClick={handleGenerateAudio}
+                  disabled={!script.trim() || isGeneratingAudio}
+                  className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-md disabled:bg-gray-400 hover:bg-indigo-700"
+                >
+                  {isGeneratingAudio ? 'Generating Voice…' : audioUrl ? 'Regenerate Voice' : 'Generate Voice'}
+                </button>
+                {audioUrl && (
+                  <audio controls src={audioUrl} className="h-10" />
+                )}
+              </div>
             </div>
           </div>
 
           <div className="text-center mt-10">
+            {error && <p className="mb-4 text-red-600 font-medium">{error}</p>}
             <button
-              onClick={handleGenerateClick}
-              disabled={!selfie}
+              onClick={handleGenerateVideo}
+              disabled={slides.length === 0 || isGeneratingVideo}
               className="px-10 py-4 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              Generate Slideshow
+              {isGeneratingVideo ? 'Building Video…' : 'Generate Slideshow Video'}
             </button>
           </div>
            <div className="text-center mt-6">

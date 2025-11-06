@@ -17,11 +17,7 @@ export default function PreviewPage() {
   const [statusMessage, setStatusMessage] = useState('Initializing video generation...');
 
   useEffect(() => {
-    if (!jobId || !token) {
-        setStatus('failed');
-        setError('No job ID or token provided.');
-        return;
-    }
+    console.log("PreviewPage mounted with jobId:", jobId, "and token:", token);
 
     let isMounted = true;
     let timeoutId: NodeJS.Timeout;
