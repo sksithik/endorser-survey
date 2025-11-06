@@ -13,50 +13,70 @@ export default function PreviewPage() {
 
   const [status, setStatus] = useState('processing');
   const [videoUrl, setVideoUrl] = useState('');
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [statusMessage, setStatusMessage] = useState('Initializing video generation...');
 
   useEffect(() => {
-    console.log("PreviewPage mounted with jobId:", jobId, "and token:", token);
-
     let isMounted = true;
     let timeoutId: NodeJS.Timeout;
 
-    const pollStatus = async () => {
-      if (!isMounted) return;
-
+    async function pollTalkingVideo() {
+      if (!jobId || !token) return;
       try {
         const response = await fetch(`/api/talking-video-heygen?id=${jobId}&token=${token}`);
         const data = await response.json();
-
-        if (isMounted) {
-          if (data.status === 'completed') {
-            setStatus('completed');
-            setVideoUrl(data.url);
-          } else if (data.status === 'failed') {
-            setStatus('failed');
-            setError(data.error?.message || 'Video generation failed.');
-          } else {
-            setStatus(data.status || 'processing');
-            setStatusMessage(data.status ? `Status: ${data.status}` : 'Processing...');
-            timeoutId = setTimeout(pollStatus, 5000);
-          }
+        if (!isMounted) return;
+        if (data.status === 'completed') {
+          setStatus('completed');
+          setVideoUrl(data.url);
+        } else if (data.status === 'failed') {
+          setStatus('failed');
+          setError(data.error?.message || 'Video generation failed.');
+        } else {
+          setStatus(data.status || 'processing');
+          setStatusMessage(data.status ? `Status: ${data.status}` : 'Processing...');
+          timeoutId = setTimeout(pollTalkingVideo, 5000);
         }
-      } catch (err) {
-        console.error("Failed to fetch video status:", err);
-        if (isMounted) {
-          timeoutId = setTimeout(pollStatus, 5000); // Retry on error
-        }
+      } catch (e) {
+        console.error('Talking video poll error', e);
+        if (isMounted) timeoutId = setTimeout(pollTalkingVideo, 5000);
       }
-    };
+    }
 
-    pollStatus();
+    async function pollSlideshow() {
+      if (!token) return;
+      try {
+        const res = await fetch(`/api/session/${token}`);
+        const data = await res.json();
+        if (!isMounted) return;
+        const session = data?.data;
+        if (session?.final_video_url) {
+          setVideoUrl(session.final_video_url);
+          setAudioUrl(session.generated_audio_url || null);
+          setStatus('completed');
+        } else {
+          setStatus('processing');
+          setStatusMessage('Generating slideshow...');
+          timeoutId = setTimeout(pollSlideshow, 3000);
+        }
+      } catch (e) {
+        console.error('Slideshow poll error', e);
+        if (isMounted) timeoutId = setTimeout(pollSlideshow, 5000);
+      }
+    }
+
+    if (type === 'slideshow') {
+      pollSlideshow();
+    } else {
+      pollTalkingVideo();
+    }
 
     return () => {
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [jobId, token]);
+  }, [jobId, token, type]);
 
   return (
     <div className="w-full min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
@@ -70,9 +90,16 @@ export default function PreviewPage() {
           <div className="max-w-2xl mx-auto">
             <div className="relative w-full bg-black rounded-lg overflow-hidden aspect-video">
               {status === 'completed' && videoUrl ? (
-                <video key={videoUrl} src={videoUrl} className="w-full h-full" controls autoPlay playsInline>
-                  Your browser does not support the video tag.
-                </video>
+                <>
+                  <video key={videoUrl} src={videoUrl} className="w-full h-full" controls autoPlay playsInline>
+                    Your browser does not support the video tag.
+                  </video>
+                  {type === 'slideshow' && audioUrl && (
+                    <div className="absolute bottom-2 left-2 right-2 bg-black/40 backdrop-blur-sm p-2 rounded flex items-center gap-3">
+                      <audio src={audioUrl} controls className="w-full" />
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-white bg-gray-800">
                   {status === 'failed' ? (
@@ -92,7 +119,7 @@ export default function PreviewPage() {
             </div>
           </div>
 
-          {status === 'completed' && (
+          {status === 'completed' && videoUrl && (
             <div className="mt-6">
                 <div className="flex flex-wrap items-center justify-center gap-4 border-t border-gray-200 pt-6">
                     <a href={videoUrl} download className="px-5 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 no-underline">Download MP4</a>

@@ -126,9 +126,13 @@ export async function POST(req: NextRequest) {
         }).join('\n');
         fs.writeFileSync(fileListPath, fileListContent, 'utf-8');
 
-        // Construct command with optional audio
-        const audioInput = audioPath ? ` -i "${audioPath}" -shortest ` : ' ';
-        const command = `${ffmpegPath} -f concat -safe 0 -i "${fileListPath}"${audioInput}-c:v libx264 -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1" -pix_fmt yuv420p -r 25 -c:a aac "${videoPath}"`;
+        // Construct command with proper stream mapping if audio present
+        let command: string;
+        if (audioPath) {
+            command = `${ffmpegPath} -f concat -safe 0 -i "${fileListPath}" -i "${audioPath}" -c:v libx264 -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1" -pix_fmt yuv420p -r 25 -c:a aac -map 0:v -map 1:a -shortest "${videoPath}"`;
+        } else {
+            command = `${ffmpegPath} -f concat -safe 0 -i "${fileListPath}" -c:v libx264 -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1" -pix_fmt yuv420p -r 25 -movflags +faststart "${videoPath}"`;
+        }
 
         await new Promise<void>((resolve, reject) => {
             exec(command, (error, stdout, stderr) => {
