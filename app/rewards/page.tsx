@@ -23,7 +23,7 @@ export default function RewardsPage() {
   const [loadingPoints, setLoadingPoints] = useState(true);
   const [loadingGiftCards, setLoadingGiftCards] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [redeemingCardId, setRedeemingCardId] = useState<number | null>(null);
+  const [redeemingCardId, setRedeemingCardId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -82,7 +82,7 @@ export default function RewardsPage() {
   }, [supabase]);
 
   const handleRedeem = async (card: GiftCard) => {
-    if (totalPoints === null || totalPoints < card.points) {
+    if (totalPoints === null || card.points === null || (totalPoints as number) < card.points) {
       alert("You don't have enough points to redeem this card.");
       return;
     }
@@ -91,12 +91,13 @@ export default function RewardsPage() {
       return;
     }
 
-    setRedeemingCardId(card.id);
+  setRedeemingCardId(card.id);
+  setRedeemingCardId(card.id);
     try {
       const response = await fetch('/api/giftbit/redeem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cardId: card.id, pointsCost: card.points, userId: userId }),
+        body: JSON.stringify({ cardId: card.id, pointsCost: card.points!, userId: userId }),
       });
 
       if (!response.ok) {
@@ -201,12 +202,14 @@ export default function RewardsPage() {
                     </span>
                     <Button
                       className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-5 rounded-full shadow-md"
-                      disabled={totalPoints === null || totalPoints < card.points || redeemingCardId === card.id}
-                      onClick={() => handleRedeem(card)}
+                      disabled={
+                        totalPoints === null || card.points == null || totalPoints < card.points || redeemingCardId === card.id
+                      }
+                      onClick={() => handleRedeem(card)} // card.points is checked in handleRedeem
                     >
                       {redeemingCardId === card.id ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : totalPoints !== null && totalPoints >= card.points ? (
+                      ) : totalPoints !== null && card.points != null && totalPoints >= card.points ? (
                         'Redeem'
                       ) : (
                         'Earn More'

@@ -17,7 +17,6 @@ export default function LandingPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
-          className="text-6xl md:text-8xl font-extrabold leading-tight mb-6 drop-shadow-lg bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600"
         >
           Elevate Your Brand with AI-Powered Endorsements
         </motion.h1>
@@ -25,7 +24,6 @@ export default function LandingPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
-          className="text-xl md:text-2xl text-gray-200 max-w-4xl mb-12 leading-relaxed"
         >
           Transform customer stories into compelling video testimonials. Leverage cutting-edge AI to effortlessly create, manage, and amplify authentic endorsements that drive growth.
         </motion.p>
@@ -33,7 +31,6 @@ export default function LandingPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.7, ease: "easeOut" }}
-          className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-6"
         >
           <a
             href="/register"

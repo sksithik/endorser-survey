@@ -39,7 +39,6 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       if (user) {
-        // @ts-expect-error: user_metadata is unknown structure
         form.reset({ name: user.user_metadata?.full_name ?? '' });
       }
     })();
@@ -88,7 +87,6 @@ export default function DashboardPage() {
         >
           <div className="text-center">
             <h1 className="text-4xl font-bold text-foreground">
-              {/* @ts-expect-error untyped metadata */}
               Welcome, {user.user_metadata?.full_name || user.email || 'there'}!
             </h1>
             <p className="text-lg text-muted-foreground mt-2">
@@ -140,7 +138,7 @@ export default function DashboardPage() {
                 <Button variant="outline" className="w-full" onClick={() => router.push('/rewards')}>
                   View My Rewards
                 </Button>
-                <Button variant="outline" className="w-full" onClick={() => router.push('/settings')}>
+                <Button variant="outline" className="w-full" onClick={() => router.push('/settings' as any)}>
                   Account Settings
                 </Button>
                 <Button

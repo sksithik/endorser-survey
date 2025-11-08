@@ -24,7 +24,7 @@ const ExampleTile = ({ title, icon }: { title: string; icon: React.ReactNode }) 
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.5 }}
-    className="border border-input rounded-lg bg-card overflow-hidden shadow-sm"
+    // className="border border-input rounded-lg bg-card overflow-hidden shadow-sm"
   >
     <div className="w-full aspect-video bg-muted flex items-center justify-center text-muted-foreground">
       {icon}
