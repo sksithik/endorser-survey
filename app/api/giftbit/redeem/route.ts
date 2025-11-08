@@ -68,7 +68,8 @@ export async function POST(req: Request) {
   // Build Giftbit payload.
   // NOTE: Field names vary based on account setup. Keep your original fields if they work in your tenant,
   // but ensure BASE points at /papi/v1 and include a recipient or link-delivery.
-  const recipientEmail = userRow.email ?? auth.user.email ?? undefined;
+  // Safe access to auth.user which might be null
+  const recipientEmail = userRow.email ?? (auth?.user?.email ?? undefined);
 
   const payload: Record<string, any> = {
     campaign_uuid: CAMPAIGN_UUID,               // optional, if using a specific campaign
@@ -121,6 +122,15 @@ export async function POST(req: Request) {
     points: -denominationDollars,
     // Optionally store Giftbit gift id / details:
     // metadata: gbBody,  // add a jsonb column if you want
+  } as any);
+
+  // Point transaction record (deduction)
+  await supabase.from('point_transactions').insert({
+    user_id: authedUserId,
+    delta: -denominationDollars,
+    balance_after: newTotalPoints,
+    reason: `Redeemed gift card ${cardId}`,
+    metadata: { giftbit: typeof gbBody === 'string' ? undefined : gbBody },
   } as any);
 
   if (updErr) {
