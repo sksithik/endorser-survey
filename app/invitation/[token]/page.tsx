@@ -1,5 +1,7 @@
-// app/invitation/[token]/page.tsx
-import Link from 'next/link'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -29,33 +31,87 @@ const safeJsonParse = (str: string): InvitationData | null => {
   }
 }
 
-export default async function InvitationPage({
+export default function InvitationPage({
   params,
 }: {
   params: { token: string }
 }) {
   const { token } = params;
+  const router = useRouter();
+  const [invitationData, setInvitationData] = useState<InvitationData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!token) {
-    notFound();
+  useEffect(() => {
+    if (!token) {
+      notFound();
+      return;
+    }
+
+    const fetchInvitation = async () => {
+      setIsLoading(true);
+      const { data, error: fetchError } = await supabase
+        .from('endorser_invite_sessions')
+        .select('invitation_data')
+        .eq('id', token)
+        .single<InviteSessionData>();
+
+      if (fetchError || !data) {
+        console.error('Supabase fetch error for token:', token, fetchError);
+        setError('Invalid or expired invitation.');
+        setIsLoading(false);
+        return;
+      }
+      
+      const parsedData: InvitationData | null = data && data.invitation_data 
+        ? (typeof data.invitation_data === 'string'
+          ? safeJsonParse(data.invitation_data)
+          : data.invitation_data as InvitationData)
+        : null;
+
+      if (!parsedData) {
+        setError('Could not parse invitation details.');
+      } else {
+        setInvitationData(parsedData);
+      }
+
+      setIsLoading(false);
+    };
+
+    fetchInvitation();
+  }, [token]);
+
+  const handleBeginReview = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/questionnaire/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate questionnaire');
+      }
+
+      router.push(`/questionnaire?token=${token}`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      console.error(errorMessage);
+      setError(errorMessage);
+      setIsLoading(false);
+    }
+  };
+  
+  if (isLoading && !invitationData) {
+    return (
+      <main className="relative min-h-screen w-full bg-black flex flex-col items-center justify-center p-4">
+        <div className="text-white">Loading invitation...</div>
+      </main>
+    )
   }
-
-  const { data, error } = await supabase
-    .from('endorser_invite_sessions')
-    .select('invitation_data')
-    .eq('id', token)
-    .single<InviteSessionData>();
-
-  if (error || !data) {
-    console.error('Supabase fetch error for token:', token, error);
-    notFound();
-  }
-
-  const invitationData: InvitationData | null = data && data.invitation_data 
-    ? (typeof data.invitation_data === 'string'
-      ? safeJsonParse(data.invitation_data)
-      : data.invitation_data as InvitationData)
-    : null;
 
   return (
     <main className="relative min-h-screen w-full bg-black flex flex-col items-center justify-center overflow-hidden p-4">
@@ -79,13 +135,13 @@ export default async function InvitationPage({
         Your browser does not support the video tag.
       </video>
       <div className="relative z-10 w-full max-w-lg">
-        {!invitationData ? (
+        {!invitationData || error ? (
           <Card className="w-full bg-black/70 backdrop-blur-lg border-red-500/50">
             <CardHeader className="text-center">
               <CardTitle className="text-3xl font-bold text-white">Invalid Invitation</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-white/70 text-center">The invitation link is either invalid or has expired. Please check the link and try again.</p>
+              <p className="text-white/70 text-center">{error || 'The invitation link is either invalid or has expired. Please check the link and try again.'}</p>
             </CardContent>
           </Card>
         ) : (
@@ -102,11 +158,14 @@ export default async function InvitationPage({
                 <p className="text-base text-white/80 mt-2">{invitationData.inviteCopy || `We'd love to hear about your experience with our ${invitationData.servicePerformed || 'services'}.`}</p>
               </div>
               
-              <Link href={`/questionnaire?token=${token}`} className="w-full block">
-                <Button size="lg" className="w-full bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white font-bold py-3 text-lg transition-all duration-300 transform hover:scale-105">
-                  Begin My Review
-                </Button>
-              </Link>
+              <Button 
+                size="lg" 
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white font-bold py-3 text-lg transition-all duration-300 transform hover:scale-105"
+                onClick={handleBeginReview}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Please wait...' : 'Begin My Review'}
+              </Button>
 
               <div className="text-xs text-center text-white/50 space-y-1 pt-4">
                 <p>Service: {invitationData.servicePerformed}</p>

@@ -46,7 +46,7 @@ export default function QuestionnairePage() {
     const fetchSurvey = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(`/api/survey/load?token=${token}`);
+        const response = await fetch(`/api/questionnaire/load?token=${token}`);
         const data = await response.json();
         if (!response.ok) {
           throw new Error(data.message || 'Failed to load survey');
@@ -64,36 +64,8 @@ export default function QuestionnairePage() {
     fetchSurvey();
   }, [token]);
 
-  // This useEffect hook handles auto-saving the user's progress
-  useEffect(() => {
-    if (isLoading) {
-      return;
-    }
-
-    const saveProgress = async () => {
-      try {
-        await fetch('/api/survey/progress', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            token,
-            answers,
-            currentStep: currentQuestionIndex,
-          }),
-        });
-      } catch (e) {
-        console.error("Failed to save progress:", e);
-      }
-    };
-
-    const handler = setTimeout(() => {
-      saveProgress();
-    }, 2000);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [answers, currentQuestionIndex, token, isLoading]);
+  // NOTE: The progress saving and submission features have been temporarily disabled
+  // as the current data source ('endorser_invite_sessions') does not support them.
 
   const handleAnswerChange = (questionId: string, value: string) => {
     setAnswers(prev => ({ ...prev, [questionId]: value }));
@@ -102,38 +74,15 @@ export default function QuestionnairePage() {
   const handleNext = () => {
     if (surveyData && currentQuestionIndex < surveyData.questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
+    } else if (surveyData && currentQuestionIndex === surveyData.questions.length -1) {
+      // Temporary: go to complete page on last question.
+      router.push('/complete');
     }
   };
 
   const handleBack = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(prev => prev - 1);
-    }
-  };
-
-  const handleSubmit = async () => {
-    try {
-      const response = await fetch('/api/survey/complete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ token, answers }),
-      });
-
-      const data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Failed to submit survey.');
-      }
-
-      if (data.redirectPath) {
-        router.push(data.redirectPath);
-      } else {
-        console.error("No redirect path received from server.");
-        setError("Could not determine the next step. Please try again.");
-      }
-    } catch (e: any) {
-      setError(e.message);
     }
   };
 
@@ -203,21 +152,13 @@ export default function QuestionnairePage() {
           >
             Back
           </button>
-          {isLastQuestion ? (
-            <button
-              onClick={handleSubmit}
-              className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-            >
-              Finish & Submit
-            </button>
-          ) : (
-            <button
-              onClick={handleNext}
-              className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-            >
-              Next
-            </button>
-          )}
+          
+          <button
+            onClick={handleNext}
+            className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+          >
+            {isLastQuestion ? 'Finish' : 'Next'}
+          </button>
         </div>
       </div>
     </div>
