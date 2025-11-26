@@ -1,8 +1,9 @@
-// app/recording/page.tsx
 'use client';
 
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { AssetRequestResponse, WizardContext } from '@/lib/endorse-gen-types';
 
 const RecordingModeCard = ({ pathname, token, icon, title, description }: { pathname: string, token: string | null, icon: React.ReactNode, title: string, description: string }) => (
   <Link href={{ pathname, query: { token } }} className="block p-6 bg-white border border-gray-200 rounded-lg shadow-md hover:shadow-lg hover:border-indigo-500 transition-all group">
@@ -20,6 +21,31 @@ const RecordingModeCard = ({ pathname, token, icon, title, description }: { path
 export default function RecordingModePage() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
+  const [assetInstructions, setAssetInstructions] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!token) return;
+    const fetchAssets = async () => {
+      try {
+        const ctxRes = await fetch(`/api/endorse-gen/context?token=${token}`);
+        const ctxData = await ctxRes.json();
+
+        const res = await fetch('/api/endorse-gen/asset-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(ctxData),
+        });
+        const data: AssetRequestResponse = await res.json();
+        setAssetInstructions(data.assetInstructions);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchAssets();
+  }, [token]);
 
   const CameraIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>;
   const UserIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
@@ -33,6 +59,23 @@ export default function RecordingModePage() {
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900">Choose Your Recording Mode</h1>
           <p className="text-lg text-gray-600 mt-2">How would you like to create your video testimonial?</p>
         </header>
+
+        {assetInstructions && (
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8 rounded-r">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-blue-700">
+                  {assetInstructions}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <RecordingModeCard
@@ -59,9 +102,9 @@ export default function RecordingModePage() {
         </div>
 
         <div className="text-center mt-12">
-            <Link href={{ pathname: '/script', query: { token } }} className="text-gray-600 hover:text-indigo-600 font-semibold">
-                &larr; Go back to edit script
-            </Link>
+          <Link href={{ pathname: '/script', query: { token } }} className="text-gray-600 hover:text-indigo-600 font-semibold">
+            &larr; Go back to edit script
+          </Link>
         </div>
       </div>
     </div>

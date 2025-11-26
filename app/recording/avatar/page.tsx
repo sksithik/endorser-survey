@@ -1,4 +1,3 @@
-// app/recording/avatar/page.tsx
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -7,149 +6,142 @@ import Link from 'next/link';
 
 // --- Reusable Components ---
 
-const ConsentModal = ({ onAccept, onDecline }: { onAccept: () => void, onDecline: () => void }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-xl p-8 max-w-lg w-full">
-            <h2 className="text-2xl font-bold mb-4">Voice Cloning Consent</h2>
-            <p className="text-gray-600 mb-6">To create an AI Avatar video, we need to clone your voice. This allows the avatar to speak your chosen script naturally. Your voice data will be used solely for generating this video.</p>
-            <div className="flex justify-end gap-4">
-                <button onClick={onDecline} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100">Decline</button>
-                <button onClick={onAccept} className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">I Accept</button>
-            </div>
-        </div>
+const ConsentModal = ({ onAccept, onDecline, consentText }: { onAccept: () => void, onDecline: () => void, consentText: string }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg shadow-xl p-8 max-w-lg w-full">
+      <h2 className="text-2xl font-bold mb-4">Voice Cloning Consent</h2>
+      <p className="text-gray-600 mb-6">{consentText}</p>
+      <div className="flex justify-end gap-4">
+        <button onClick={onDecline} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100">Decline</button>
+        <button onClick={onAccept} className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">I Accept</button>
+      </div>
     </div>
-);
-
-const TemplateTile = ({ name, imageUrl, selected, onClick }: { name: string, imageUrl: string, selected: boolean, onClick: () => void }) => (
-    <div onClick={onClick} className={`rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${selected ? 'border-indigo-600' : 'border-gray-200'}`}>
-        <img src={imageUrl} alt={name} className="w-full h-full object-cover aspect-video bg-gray-100" />
-        <p className={`text-center text-sm font-semibold p-2 ${selected ? 'text-indigo-700 bg-indigo-50' : 'text-gray-600 bg-white'}`}>{name}</p>
-    </div>
+  </div>
 );
 
 const SelfieCamera = ({ onSelfieTaken, onCancel }: { onSelfieTaken: (file: File) => void, onCancel: () => void }) => {
-    const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-    useEffect(() => {
-        let stream: MediaStream | null = null;
-        const setupCamera = async () => {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                }
-            } catch (err) {
-                console.error("Camera access denied:", err);
-                alert("Camera access is required to take a selfie. Please allow camera access and try again.");
-                onCancel();
-            }
-        };
-        setupCamera();
-        return () => {
-            stream?.getTracks().forEach(track => track.stop());
-        };
-    }, [onCancel]);
-
-    const handleSnap = () => {
-        if (!videoRef.current) return;
-        const canvas = document.createElement('canvas');
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(blob => {
-            if (blob) {
-                onSelfieTaken(new File([blob], `selfie-${Date.now()}.jpg`, { type: 'image/jpeg' }));
-            }
-        }, 'image/jpeg');
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    const setupCamera = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.error("Camera access denied:", err);
+        alert("Camera access is required to take a selfie. Please allow camera access and try again.");
+        onCancel();
+      }
     };
+    setupCamera();
+    return () => {
+      stream?.getTracks().forEach(track => track.stop());
+    };
+  }, [onCancel]);
 
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-            <div className="bg-white p-4 rounded-lg shadow-xl max-w-md w-full">
-                <video ref={videoRef} autoPlay playsInline muted className="w-full aspect-square object-cover rounded-lg mb-4" />
-                <div className="flex gap-4">
-                    <button onClick={handleSnap} className="w-full px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Snap Photo</button>
-                    <button onClick={onCancel} className="w-full px-6 py-3 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
-                </div>
-            </div>
+  const handleSnap = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(blob => {
+      if (blob) {
+        onSelfieTaken(new File([blob], `selfie-${Date.now()}.jpg`, { type: 'image/jpeg' }));
+      }
+    }, 'image/jpeg');
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+      <div className="bg-white p-4 rounded-lg shadow-xl max-w-md w-full">
+        <video ref={videoRef} autoPlay playsInline muted className="w-full aspect-square object-cover rounded-lg mb-4" />
+        <div className="flex gap-4">
+          <button onClick={handleSnap} className="w-full px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Snap Photo</button>
+          <button onClick={onCancel} className="w-full px-6 py-3 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
         </div>
-    );
+      </div>
+    </div>
+  );
 };
 
 const Teleprompter = ({ script, onStart, onStop, onCancel }: { script: string, onStart: () => void, onStop: () => void, onCancel: () => void }) => {
-    const [isScrolling, setIsScrolling] = useState(false);
-    const [scrollSpeed, setScrollSpeed] = useState(20); // pixels per second
-    const contentRef = useRef<HTMLDivElement>(null);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const [scrollSpeed, setScrollSpeed] = useState(20); // pixels per second
+  const contentRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        let animationFrameId: number;
+  useEffect(() => {
+    let animationFrameId: number;
 
-        const scroll = () => {
-            if (contentRef.current) {
-                const scrollAmount = (scrollSpeed / 60);
-                contentRef.current.scrollTop += scrollAmount;
-            }
-            animationFrameId = requestAnimationFrame(scroll);
-        };
-
-        if (isScrolling) {
-            animationFrameId = requestAnimationFrame(scroll);
-        }
-
-        return () => {
-            cancelAnimationFrame(animationFrameId);
-        };
-    }, [isScrolling, scrollSpeed]);
-
-    const handleStart = () => {
-        onStart();
-        setIsScrolling(true);
+    const scroll = () => {
+      if (contentRef.current) {
+        const scrollAmount = (scrollSpeed / 60);
+        contentRef.current.scrollTop += scrollAmount;
+      }
+      animationFrameId = requestAnimationFrame(scroll);
     };
 
-    const handleStop = () => {
-        onStop();
-        setIsScrolling(false);
-    };
+    if (isScrolling) {
+      animationFrameId = requestAnimationFrame(scroll);
+    }
 
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col overflow-hidden">
-                <div ref={contentRef} className="flex-grow p-8 md:p-12 overflow-y-scroll scroll-smooth">
-                    <p className="text-3xl md:text-4xl leading-relaxed text-gray-800 whitespace-pre-wrap">
-                        {script}
-                    </p>
-                </div>
-                <div className="bg-gray-50 border-t border-gray-200 p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <label htmlFor="speed" className="text-sm font-medium text-gray-600">Speed:</label>
-                        <input 
-                            type="range" 
-                            id="speed" 
-                            min="5" 
-                            max="50" 
-                            value={scrollSpeed} 
-                            onChange={(e) => setScrollSpeed(Number(e.target.value))} 
-                            className="w-32"
-                        />
-                    </div>
-                    <div className="flex items-center gap-4">
-                        {!isScrolling ? (
-                            <button onClick={handleStart} className="px-8 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105">
-                                Start Recording
-                            </button>
-                        ) : (
-                            <button onClick={handleStop} className="px-8 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-transform transform hover:scale-105">
-                                Stop Recording
-                            </button>
-                        )}
-                        <button onClick={onCancel} className="px-6 py-3 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Cancel</button>
-                    </div>
-                </div>
-            </div>
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [isScrolling, scrollSpeed]);
+
+  const handleStart = () => {
+    onStart();
+    setIsScrolling(true);
+  };
+
+  const handleStop = () => {
+    onStop();
+    setIsScrolling(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col overflow-hidden">
+        <div ref={contentRef} className="flex-grow p-8 md:p-12 overflow-y-scroll scroll-smooth">
+          <p className="text-3xl md:text-4xl leading-relaxed text-gray-800 whitespace-pre-wrap">
+            {script}
+          </p>
         </div>
-    );
+        <div className="bg-gray-50 border-t border-gray-200 p-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <label htmlFor="speed" className="text-sm font-medium text-gray-600">Speed:</label>
+            <input
+              type="range"
+              id="speed"
+              min="5"
+              max="50"
+              value={scrollSpeed}
+              onChange={(e) => setScrollSpeed(Number(e.target.value))}
+              className="w-32"
+            />
+          </div>
+          <div className="flex items-center gap-4">
+            {!isScrolling ? (
+              <button onClick={handleStart} className="px-8 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105">
+                Start Recording
+              </button>
+            ) : (
+              <button onClick={handleStop} className="px-8 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-transform transform hover:scale-105">
+                Stop Recording
+              </button>
+            )}
+            <button onClick={onCancel} className="px-6 py-3 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 
@@ -165,6 +157,7 @@ export default function AvatarPage() {
   const [script, setScript] = useState('');
   const [selfieMode, setSelfieMode] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
+  const [consentText, setConsentText] = useState('To create an AI Avatar video, we need to clone your voice. This allows the avatar to speak your chosen script naturally. Your voice data will be used solely for generating this video.');
   const [showTeleprompter, setShowTeleprompter] = useState(false);
   const [generationStep, setGenerationStep] = useState(''); // e.g., 'cloning', 'generating'
   const [isUploading, setIsUploading] = useState(false);
@@ -192,6 +185,20 @@ export default function AvatarPage() {
           if (result.data.voice_public_url) setVoice(result.data.voice_public_url);
           if (result.data.selected_script) setScript(result.data.selected_script);
         }
+
+        // Fetch consent text
+        const ctxRes = await fetch(`/api/endorse-gen/context?token=${token}`);
+        const ctxData = await ctxRes.json();
+        const consentRes = await fetch('/api/endorse-gen/consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(ctxData),
+        });
+        const consentData = await consentRes.json();
+        if (consentData.consentNotice) {
+          setConsentText(consentData.consentNotice);
+        }
+
       } catch (error) {
         console.error("Failed to fetch existing assets:", error);
       }
@@ -203,18 +210,18 @@ export default function AvatarPage() {
     if (!backgroundSearchQuery.trim()) return;
     setIsSearchingBackgrounds(true);
     try {
-        const response = await fetch(`/api/backgrounds/search?query=${encodeURIComponent(backgroundSearchQuery)}`);
-        const result = await response.json();
-        if (result.success) {
-            setSearchedBackgrounds(result.images);
-        } else {
-            alert(`Failed to search for backgrounds: ${result.message}`);
-        }
+      const response = await fetch(`/api/backgrounds/search?query=${encodeURIComponent(backgroundSearchQuery)}`);
+      const result = await response.json();
+      if (result.success) {
+        setSearchedBackgrounds(result.images);
+      } else {
+        alert(`Failed to search for backgrounds: ${result.message}`);
+      }
     } catch (error) {
-        console.error("Background search error:", error);
-        alert("An error occurred while searching for backgrounds.");
+      console.error("Background search error:", error);
+      alert("An error occurred while searching for backgrounds.");
     } finally {
-        setIsSearchingBackgrounds(false);
+      setIsSearchingBackgrounds(false);
     }
   };
 
@@ -299,53 +306,53 @@ export default function AvatarPage() {
 
   const initMediaRecorder = useCallback(async () => {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        setVoice(null);
-        mediaRecorderRef.current = new MediaRecorder(stream);
-        audioChunksRef.current = [];
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setVoice(null);
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
 
-        mediaRecorderRef.current.ondataavailable = (event) => {
-            audioChunksRef.current.push(event.data);
-        };
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
 
-        mediaRecorderRef.current.onstop = () => {
-            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-            const audioFile = new File([audioBlob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
-            setVoice(audioFile);
-            uploadVoice(audioFile);
-            stream.getTracks().forEach(track => track.stop());
-        };
-        return true;
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioFile = new File([audioBlob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+        setVoice(audioFile);
+        uploadVoice(audioFile);
+        stream.getTracks().forEach(track => track.stop());
+      };
+      return true;
     } catch (err) {
-        console.error("Microphone access denied:", err);
-        alert("Microphone access is required to record your voice.");
-        return false;
+      console.error("Microphone access denied:", err);
+      alert("Microphone access is required to record your voice.");
+      return false;
     }
   }, [voiceOption, token]);
 
   const handleRecordClick = async () => {
     if (isRecording) {
-        stopRecording();
+      stopRecording();
     } else {
-        const ready = await initMediaRecorder();
-        if (!ready) return;
+      const ready = await initMediaRecorder();
+      if (!ready) return;
 
-        if (voiceOption === 'full') {
-            if (!script) {
-                alert("Script not loaded yet. Please wait a moment.");
-                return;
-            }
-            setShowTeleprompter(true);
-        } else {
-            startRecording();
+      if (voiceOption === 'full') {
+        if (!script) {
+          alert("Script not loaded yet. Please wait a moment.");
+          return;
         }
+        setShowTeleprompter(true);
+      } else {
+        startRecording();
+      }
     }
   };
 
   const startRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive') {
-        mediaRecorderRef.current.start();
-        setIsRecording(true);
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
     }
   };
 
@@ -362,8 +369,8 @@ export default function AvatarPage() {
       return;
     }
     if (!selectedBackgroundUrl) {
-        alert("Please select a background.");
-        return;
+      alert("Please select a background.");
+      return;
     }
     if (voiceOption === 'clone') {
       setShowConsent(true);
@@ -375,15 +382,10 @@ export default function AvatarPage() {
   const handleConsentAccept = async () => {
     setShowConsent(false);
     try {
-      if (voiceOption === 'clone') {
-        const consentResponse = await fetch('/api/consent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
-        });
-        if (!consentResponse.ok) throw new Error('Failed to record consent.');
-      }
-      
+      // We don't necessarily need to call /api/consent again if we just want to proceed,
+      // but if we want to log it, we can. The prompt says "Used before generating".
+      // Let's assume we just proceed.
+
       const audioGenerationEndpoint = voiceOption === 'full' ? '/api/voice/clean-and-tts' : '/api/voice/clone-and-tts';
 
       setGenerationStep('cloning');
@@ -423,7 +425,7 @@ export default function AvatarPage() {
   if (isProcessing) {
     let message = 'Generating your AI Avatar video...';
     if (generationStep === 'cloning') {
-        message = 'Processing your voice and generating script audio...';
+      message = 'Processing your voice and generating script audio...';
     }
     return (
       <div className="w-full min-h-screen flex flex-col items-center justify-center text-center p-4">
@@ -439,14 +441,14 @@ export default function AvatarPage() {
 
   return (
     <>
-      {showConsent && <ConsentModal onAccept={handleConsentAccept} onDecline={() => setShowConsent(false)} />}
+      {showConsent && <ConsentModal onAccept={handleConsentAccept} onDecline={() => setShowConsent(false)} consentText={consentText} />}
       {selfieMode && <SelfieCamera onSelfieTaken={handleSelfieTaken} onCancel={handleCancelSelfie} />}
       {showTeleprompter && (
-        <Teleprompter 
-            script={script}
-            onStart={startRecording}
-            onStop={() => { stopRecording(); setShowTeleprompter(false); }}
-            onCancel={() => setShowTeleprompter(false)}
+        <Teleprompter
+          script={script}
+          onStart={startRecording}
+          onStop={() => { stopRecording(); setShowTeleprompter(false); }}
+          onCancel={() => setShowTeleprompter(false)}
         />
       )}
       <div className="w-full min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
@@ -459,7 +461,7 @@ export default function AvatarPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             <div className="bg-white p-8 rounded-lg shadow-md">
               <h3 className="text-xl font-semibold mb-4">1. Your Assets</h3>
-              
+
               {/* Selfie Section */}
               <h4 className="text-lg font-semibold text-gray-800 mb-4">Your Selfie</h4>
               <div>
@@ -478,7 +480,7 @@ export default function AvatarPage() {
                 <div className="flex items-center gap-4">
                   <label className="w-full cursor-pointer text-center px-6 py-3 bg-indigo-50 text-indigo-700 rounded-md hover:bg-indigo-100 font-semibold">
                     Upload File
-                    <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" disabled={isUploading}/>
+                    <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" disabled={isUploading} />
                   </label>
                   <button onClick={() => setSelfieMode(true)} className="w-full px-6 py-3 bg-gray-800 text-white rounded-md font-semibold" disabled={isUploading}>Take Selfie</button>
                 </div>
@@ -487,7 +489,7 @@ export default function AvatarPage() {
 
               {/* Voice Recording Section */}
               <h4 className="text-lg font-semibold text-gray-800 mt-8 mb-4 border-t pt-6">Your Voice</h4>
-              
+
               <div className="flex items-center justify-center mb-4 bg-gray-100 p-1 rounded-lg">
                 <button onClick={() => setVoiceOption('clone')} className={`w-full text-center px-4 py-2 rounded-md font-semibold transition-colors ${voiceOption === 'clone' ? 'bg-white text-indigo-700 shadow' : 'bg-transparent text-gray-500'}`}>
                   Voice Clone
@@ -499,52 +501,52 @@ export default function AvatarPage() {
 
               <div className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center mb-4 bg-gray-50 min-h-[80px]">
                 {isUploadingVoice ? (
-                    <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-10 w-10"></div>
+                  <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-10 w-10"></div>
                 ) : voiceSrc ? (
-                    <audio src={voiceSrc} controls className="w-full" />
+                  <audio src={voiceSrc} controls className="w-full" />
                 ) : (
-                    <p className="text-gray-500 text-center">{isRecording ? 'Recording in progress...' : 'Click "Record" to start.'}</p>
+                  <p className="text-gray-500 text-center">{isRecording ? 'Recording in progress...' : 'Click "Record" to start.'}</p>
                 )}
               </div>
-              <button 
-                  onClick={handleRecordClick} 
-                  className={`w-full px-6 py-3 text-white font-semibold rounded-md transition-colors ${isRecording ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-800 hover:bg-gray-900'}`}
-                  disabled={isUploading || isUploadingVoice}
+              <button
+                onClick={handleRecordClick}
+                className={`w-full px-6 py-3 text-white font-semibold rounded-md transition-colors ${isRecording ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-800 hover:bg-gray-900'}`}
+                disabled={isUploading || isUploadingVoice}
               >
-                  {isRecording ? 'Stop Recording' : 'Record Voice'}
+                {isRecording ? 'Stop Recording' : 'Record Voice'}
               </button>
               <p className="text-xs text-gray-500 mt-2 text-center">
-                {voiceOption === 'clone' 
-                  ? 'Record a few seconds of your voice for cloning.' 
+                {voiceOption === 'clone'
+                  ? 'Record a few seconds of your voice for cloning.'
                   : "Record the entire script. We'll clean up any mistakes."}
               </p>
             </div>
 
             <div className="bg-white p-8 rounded-lg shadow-md">
               <h3 className="text-xl font-semibold mb-4">2. Choose a Style</h3>
-              
+
               <div>
                 <h4 className="text-lg font-semibold text-gray-800 mb-4">Search for a background</h4>
                 <div className="flex gap-2 mb-4">
-                    <input 
-                        type="text"
-                        value={backgroundSearchQuery}
-                        onChange={(e) => setBackgroundSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleBackgroundSearch()}
-                        placeholder="e.g., sunny beach, modern library"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                    <button onClick={handleBackgroundSearch} disabled={isSearchingBackgrounds} className="px-6 py-2 bg-gray-800 text-white font-semibold rounded-md hover:bg-gray-900 disabled:bg-gray-400">
-                        {isSearchingBackgrounds ? '...' : 'Search'}
-                    </button>
+                  <input
+                    type="text"
+                    value={backgroundSearchQuery}
+                    onChange={(e) => setBackgroundSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleBackgroundSearch()}
+                    placeholder="e.g., sunny beach, modern library"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  <button onClick={handleBackgroundSearch} disabled={isSearchingBackgrounds} className="px-6 py-2 bg-gray-800 text-white font-semibold rounded-md hover:bg-gray-900 disabled:bg-gray-400">
+                    {isSearchingBackgrounds ? '...' : 'Search'}
+                  </button>
                 </div>
                 {isSearchingBackgrounds && <p className="text-center text-gray-500">Searching...</p>}
                 <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
-                    {searchedBackgrounds.map(image => (
-                        <div key={image.id} onClick={() => setSelectedBackgroundUrl(image.url)} className={`rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${selectedBackgroundUrl === image.url ? 'border-indigo-600' : 'border-transparent'}`}>
-                            <img src={image.url} alt={image.alt} className="w-full h-full object-cover aspect-video bg-gray-100" />
-                        </div>
-                    ))}
+                  {searchedBackgrounds.map(image => (
+                    <div key={image.id} onClick={() => setSelectedBackgroundUrl(image.url)} className={`rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${selectedBackgroundUrl === image.url ? 'border-indigo-600' : 'border-transparent'}`}>
+                      <img src={image.url} alt={image.alt} className="w-full h-full object-cover aspect-video bg-gray-100" />
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -556,11 +558,11 @@ export default function AvatarPage() {
               Generate Video
             </button>
           </div>
-           <div className="text-center mt-6">
-                <Link href={{ pathname: '/recording', query: { token } }} className="text-gray-600 hover:text-indigo-600 font-semibold">
-                    &larr; Go back to recording options
-                </Link>
-            </div>
+          <div className="text-center mt-6">
+            <Link href={{ pathname: '/recording', query: { token } }} className="text-gray-600 hover:text-indigo-600 font-semibold">
+              &larr; Go back to recording options
+            </Link>
+          </div>
         </div>
       </div>
     </>

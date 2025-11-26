@@ -1,7 +1,7 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { CheckCircle, Mail, LogIn } from 'lucide-react';
 
@@ -54,13 +54,36 @@ function CompletionPageContent() {
         }
     };
 
+    const [completionMessage, setCompletionMessage] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!token) return;
+        const fetchCompletion = async () => {
+            try {
+                const ctxRes = await fetch(`/api/endorse-gen/context?token=${token}`);
+                const ctxData = await ctxRes.json();
+
+                const res = await fetch('/api/endorse-gen/completion', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(ctxData),
+                });
+                const data = await res.json();
+                setCompletionMessage(data.completionMessage);
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        fetchCompletion();
+    }, [token]);
+
     return (
         <div className="w-full min-h-screen bg-gray-900 text-white p-4 flex flex-col items-center justify-center">
             <div className="w-full max-w-2xl">
                 <div className="card text-center">
                     <CheckCircle className="h-16 w-16 text-green-400 mx-auto mb-4" />
                     <h1 className="text-3xl font-bold mb-2">Thank You!</h1>
-                    <p className="text-white/70 mb-8">Your participation in the survey is greatly appreciated.</p>
+                    <p className="text-white/70 mb-8">{completionMessage || "Your participation in the survey is greatly appreciated."}</p>
 
                     {/* Email Section */}
                     <div className="bg-white/5 border border-white/10 p-6 rounded-2xl mb-8">

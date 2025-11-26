@@ -64,19 +64,32 @@ export default function QuestionnairePage() {
     fetchSurvey();
   }, [token]);
 
-  // NOTE: The progress saving and submission features have been temporarily disabled
-  // as the current data source ('endorser_invite_sessions') does not support them.
-
   const handleAnswerChange = (questionId: string, value: string) => {
     setAnswers(prev => ({ ...prev, [questionId]: value }));
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (surveyData && currentQuestionIndex < surveyData.questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
-    } else if (surveyData && currentQuestionIndex === surveyData.questions.length -1) {
-      // Temporary: go to complete page on last question.
-      router.push('/complete');
+    } else if (surveyData && currentQuestionIndex === surveyData.questions.length - 1) {
+      // Submit answers
+      setIsLoading(true);
+      try {
+        const response = await fetch('/api/questionnaire/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, answers }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || 'Failed to submit survey');
+        }
+        // Redirect to Action Selection
+        router.push(`/actions?token=${token}`);
+      } catch (e: any) {
+        setError(e.message);
+        setIsLoading(false);
+      }
     }
   };
 
@@ -98,9 +111,9 @@ export default function QuestionnairePage() {
 
   if (!currentQuestion) {
     return (
-        <div className="w-full min-h-screen flex items-center justify-center text-center p-4">
-            <p className="text-red-500">Could not load the current question. The survey may be misconfigured or complete.</p>
-        </div>
+      <div className="w-full min-h-screen flex items-center justify-center text-center p-4">
+        <p className="text-red-500">Could not load the current question. The survey may be misconfigured or complete.</p>
+      </div>
     );
   }
 
@@ -118,7 +131,7 @@ export default function QuestionnairePage() {
           <label htmlFor={`question-${currentQuestion.id}`} className="block text-xl font-semibold text-gray-800 mb-6">
             {currentQuestion.text}
           </label>
-          
+
           {currentQuestion.type === 'text' && (
             <textarea
               id={`question-${currentQuestion.id}`}
@@ -152,7 +165,7 @@ export default function QuestionnairePage() {
           >
             Back
           </button>
-          
+
           <button
             onClick={handleNext}
             className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
