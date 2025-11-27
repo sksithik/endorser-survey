@@ -74,15 +74,15 @@ export async function POST(req: NextRequest) {
     // 1. Fetch the invitation data from the invite session
     const { data: sessionData, error: sessionError } = await supabase
       .from('endorser_invite_sessions')
-      .select('invitation_data')
+      .select('invitation_data, points')
       .eq('id', token)
-      .single();
+      .single<{ invitation_data: any; points: number }>();
 
     if (sessionError || !sessionData) {
       console.error('Error fetching invite session data:', sessionError);
       return NextResponse.json({ error: 'Invalid token or session not found' }, { status: 404 });
     }
-    
+
     const invitationData = (
       typeof sessionData.invitation_data === 'string'
         ? JSON.parse(sessionData.invitation_data)
@@ -97,9 +97,13 @@ export async function POST(req: NextRequest) {
 
 
     // 3. Save the generated questions back to the endorser_invite_sessions table
+    // Also award 50 points for starting the review
     const { error: updateError } = await supabase
       .from('endorser_invite_sessions')
-      .update({ questionnaire_data: qaData })
+      .update({
+        questionnaire_data: qaData,
+        points: (sessionData.points || 0) + 50
+      })
       .eq('id', token);
 
     if (updateError) {

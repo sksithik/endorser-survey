@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { PointsToast } from '@/components/ui/points-toast'
 
 type InvitationData = {
   email: string;
@@ -41,6 +42,7 @@ export default function InvitationPage({
   const [invitationData, setInvitationData] = useState<InvitationData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showPoints, setShowPoints] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -62,8 +64,8 @@ export default function InvitationPage({
         setIsLoading(false);
         return;
       }
-      
-      const parsedData: InvitationData | null = data && data.invitation_data 
+
+      const parsedData: InvitationData | null = data && data.invitation_data
         ? (typeof data.invitation_data === 'string'
           ? safeJsonParse(data.invitation_data)
           : data.invitation_data as InvitationData)
@@ -96,7 +98,11 @@ export default function InvitationPage({
         throw new Error('Failed to generate questionnaire');
       }
 
-      router.push(`/questionnaire?token=${token}`);
+      setShowPoints(true);
+      // Delay navigation slightly to show the toast
+      setTimeout(() => {
+        router.push(`/questionnaire?token=${token}`);
+      }, 2000);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       console.error(errorMessage);
@@ -104,7 +110,7 @@ export default function InvitationPage({
       setIsLoading(false);
     }
   };
-  
+
   if (isLoading && !invitationData) {
     return (
       <main className="relative min-h-screen w-full bg-black flex flex-col items-center justify-center p-4">
@@ -157,9 +163,9 @@ export default function InvitationPage({
                 <h3 className="font-semibold text-xl text-white">Hello, {invitationData.firstName}!</h3>
                 <p className="text-base text-white/80 mt-2">{invitationData.inviteCopy || `We'd love to hear about your experience with our ${invitationData.servicePerformed || 'services'}.`}</p>
               </div>
-              
-              <Button 
-                size="lg" 
+
+              <Button
+                size="lg"
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white font-bold py-3 text-lg transition-all duration-300 transform hover:scale-105"
                 onClick={handleBeginReview}
                 disabled={isLoading}
@@ -175,6 +181,7 @@ export default function InvitationPage({
           </Card>
         )}
       </div>
+      {showPoints && <PointsToast points={50} message="Review Started" />}
     </main>
   )
 }

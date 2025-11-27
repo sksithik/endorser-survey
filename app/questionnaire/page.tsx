@@ -3,6 +3,7 @@
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { PointsToast } from '@/components/ui/points-toast';
 
 // Define the new, more detailed question structure
 type QuestionOption = {
@@ -35,6 +36,7 @@ export default function QuestionnairePage() {
   const [surveyData, setSurveyData] = useState<SurveyData | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({}); // Use string for question ID
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [showPoints, setShowPoints] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -84,8 +86,13 @@ export default function QuestionnairePage() {
         if (!response.ok || !data.success) {
           throw new Error(data.message || 'Failed to submit survey');
         }
-        // Redirect to Action Selection
-        router.push(`/actions?token=${token}`);
+
+        setShowPoints(true);
+        // Delay redirect to show toast
+        setTimeout(() => {
+          // Redirect to Action Selection
+          router.push(`/actions?token=${token}`);
+        }, 2000);
       } catch (e: any) {
         setError(e.message);
         setIsLoading(false);
@@ -174,6 +181,7 @@ export default function QuestionnairePage() {
           </button>
         </div>
       </div>
+      {showPoints && <PointsToast points={100} message="Survey Completed" />}
     </div>
   );
 }
