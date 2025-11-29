@@ -33,7 +33,7 @@ function SharePageContent() {
                 // Fetch video URL from Supabase
                 const { data: sessionData, error: sessionError } = await supabase
                     .from('endorser_survey_sessions')
-                    .select('final_video_url, survey')
+                    .select('final_video_url, video_url, survey')
                     .eq('session_id', token)
                     .single();
 
@@ -41,11 +41,13 @@ function SharePageContent() {
                     throw new Error(sessionError?.message || 'Failed to fetch session data.');
                 }
 
-                if (!sessionData.final_video_url) {
+                const urlToUse = sessionData.final_video_url || sessionData.video_url;
+
+                if (!urlToUse) {
                     throw new Error('Video not found for this session.');
                 }
 
-                setVideoUrl(sessionData.final_video_url);
+                setVideoUrl(urlToUse);
 
                 // Generate shareable content
                 const contentResponse = await fetch('/api/share/generate-content', {
