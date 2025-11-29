@@ -22,9 +22,9 @@ function SharePageContent() {
     const [error, setError] = useState<string | null>(null);
 
     const [reviewLink, setReviewLink] = useState<string | null>(null);
-    const [showReviewModal, setShowReviewModal] = useState(false);
     const [generatedReview, setGeneratedReview] = useState('');
     const [isGeneratingReview, setIsGeneratingReview] = useState(false);
+    const [hasAttemptedGeneration, setHasAttemptedGeneration] = useState(false);
 
     useEffect(() => {
         if (!token) {
@@ -82,36 +82,39 @@ function SharePageContent() {
         fetchData();
     }, [token]);
 
+    useEffect(() => {
+        if (token && reviewLink && !generatedReview && !isGeneratingReview && !hasAttemptedGeneration) {
+            const generate = async () => {
+                setIsGeneratingReview(true);
+                setHasAttemptedGeneration(true);
+                try {
+                    const response = await fetch('/api/share/generate-review', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token }),
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        setGeneratedReview(data.reviewText);
+                    } else {
+                        console.error('Failed to generate review:', data.message);
+                        setGeneratedReview('I had a great experience! (Draft generation failed, please write your own review).');
+                    }
+                } catch (error) {
+                    console.error('Error generating review:', error);
+                    setGeneratedReview('I had a great experience! (Draft generation failed, please write your own review).');
+                } finally {
+                    setIsGeneratingReview(false);
+                }
+            };
+            generate();
+        }
+    }, [token, reviewLink, generatedReview, isGeneratingReview, hasAttemptedGeneration]);
+
     const handleCopyLink = () => {
         if (videoUrl) {
             navigator.clipboard.writeText(videoUrl);
             alert('Link copied to clipboard!');
-        }
-    };
-
-    const handleOpenReviewModal = async () => {
-        setShowReviewModal(true);
-        if (!generatedReview) {
-            setIsGeneratingReview(true);
-            try {
-                const response = await fetch('/api/share/generate-review', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token }),
-                });
-                const data = await response.json();
-                if (data.success) {
-                    setGeneratedReview(data.reviewText);
-                } else {
-                    console.error('Failed to generate review:', data.message);
-                    setGeneratedReview('Failed to generate review. Please write your own.');
-                }
-            } catch (error) {
-                console.error('Error generating review:', error);
-                setGeneratedReview('Error generating review. Please write your own.');
-            } finally {
-                setIsGeneratingReview(false);
-            }
         }
     };
 
@@ -122,7 +125,6 @@ function SharePageContent() {
         } else {
             alert('Review link not found.');
         }
-        setShowReviewModal(false);
     };
 
     if (isLoading) {
@@ -178,17 +180,35 @@ function SharePageContent() {
 
                         {reviewLink && (
                             <div className="pt-6 border-t border-white/10">
-                                <button
-                                    onClick={handleOpenReviewModal}
-                                    className="w-full group relative flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-xl font-bold text-lg shadow-lg shadow-emerald-900/20 transition-all duration-200 hover:shadow-emerald-900/40 hover:-translate-y-0.5 active:translate-y-0"
-                                >
-                                    <PenLine className="w-5 h-5" />
-                                    <span>Write a Review</span>
-                                    <div className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/20 group-hover:ring-white/30" />
-                                </button>
-                                <p className="text-center text-white/40 text-sm mt-3">
-                                    We'll help you write it with AI ✨
-                                </p>
+                                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                                    <div className="flex items-center gap-2 mb-3 text-emerald-400">
+                                        <PenLine className="w-4 h-4" />
+                                        <span className="text-sm font-semibold uppercase tracking-wider">AI Drafted Review</span>
+                                    </div>
+
+                                    {isGeneratingReview ? (
+                                        <div className="h-32 flex items-center justify-center text-white/50 gap-2">
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            <span>Drafting your review...</span>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <textarea
+                                                value={generatedReview}
+                                                onChange={(e) => setGeneratedReview(e.target.value)}
+                                                className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white text-sm min-h-[100px] focus:ring-2 focus:ring-emerald-500/50 outline-none resize-none mb-4"
+                                                placeholder="Write your review here..."
+                                            />
+                                            <button
+                                                onClick={handleCopyAndGo}
+                                                className="w-full group relative flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-lg font-bold shadow-lg shadow-emerald-900/20 transition-all duration-200 hover:shadow-emerald-900/40 hover:-translate-y-0.5 active:translate-y-0"
+                                            >
+                                                <span>Copy & Go to Review Site</span>
+                                                <Copy className="w-4 h-4 opacity-80" />
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -199,47 +219,6 @@ function SharePageContent() {
                     </div>
                 </div>
             </div>
-
-            {/* Review Modal */}
-            {showReviewModal && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                    <div className="bg-gray-800 rounded-xl p-6 max-w-lg w-full border border-white/10 shadow-2xl">
-                        <h3 className="text-xl font-bold mb-4">Write a Review</h3>
-                        <p className="text-gray-300 mb-4 text-sm">
-                            We've drafted a review for you based on your survey answers. Feel free to edit it before posting.
-                        </p>
-
-                        {isGeneratingReview ? (
-                            <div className="flex items-center justify-center py-8">
-                                <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-                                <span className="ml-3">Generating draft...</span>
-                            </div>
-                        ) : (
-                            <textarea
-                                className="w-full h-32 bg-gray-900 border border-white/20 rounded-lg p-3 text-white mb-4 focus:ring-2 focus:ring-blue-500 outline-none"
-                                value={generatedReview}
-                                onChange={(e) => setGeneratedReview(e.target.value)}
-                            />
-                        )}
-
-                        <div className="flex gap-3 justify-end">
-                            <button
-                                onClick={() => setShowReviewModal(false)}
-                                className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleCopyAndGo}
-                                disabled={isGeneratingReview}
-                                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Copy & Go to Review Site
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
