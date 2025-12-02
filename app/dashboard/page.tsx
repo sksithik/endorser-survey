@@ -13,6 +13,7 @@ import { Icons } from '@/components/ui/icons';
 import Header from '@/components/Header';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import SurveysList from './SurveysList';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -28,6 +29,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [surveys, setSurveys] = useState<any[]>([]);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -40,6 +42,16 @@ export default function DashboardPage() {
       setUser(user);
       if (user) {
         form.reset({ name: user.user_metadata?.full_name ?? '' });
+
+        const { data: surveysData } = await supabase
+          .from('endorser_responses')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (surveysData) {
+          setSurveys(surveysData);
+        }
       }
     })();
   }, [supabase.auth, form]);
@@ -159,8 +171,8 @@ export default function DashboardPage() {
           transition={{ duration: 0.5, delay: 0.3 }}
         >
           <div className="bg-card text-card-foreground p-6 rounded-lg shadow-lg border border-border space-y-4">
-            <h2 className="text-2xl font-semibold">Recent Activity</h2>
-            <p className="text-muted-foreground">No recent activity to display.</p>
+            <h2 className="text-2xl font-semibold">My Surveys</h2>
+            <SurveysList surveys={surveys} />
           </div>
         </motion.div>
       </div>
