@@ -11,9 +11,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, message: 'Token and file are required.' }, { status: 400 });
   }
 
-  const filePath = `selfies/${token}/${file.name}`;
+  let filePath = `selfies/${token}/${file.name}`;
 
   try {
+    // Attempt to resolve user_id from the token (which is the session_id)
+    const { data: session } = await supabaseAdmin
+      .from('endorser_invite_sessions')
+      .select('user_id')
+      .eq('id', token)
+      .single();
+
+    if (session?.user_id) {
+      filePath = `${session.user_id}/selfies/${file.name}`;
+    } else {
+      console.warn(`Could not find user_id for token ${token}, falling back to token-based path.`);
+    }
+
     // Upload the file to Supabase Storage
     const { error: uploadError } = await supabaseAdmin.storage
       .from('quotes-bucket')

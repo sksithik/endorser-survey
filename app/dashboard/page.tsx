@@ -14,6 +14,7 @@ import Header from '@/components/Header';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import SurveysList from './SurveysList';
+import MediaGallery from './MediaGallery';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -174,6 +175,14 @@ export default function DashboardPage() {
             <h2 className="text-2xl font-semibold">My Surveys</h2>
             <SurveysList surveys={surveys} />
           </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+        >
+          <MediaGallery userId={user.id} />
         </motion.div>
       </div>
     </div>
