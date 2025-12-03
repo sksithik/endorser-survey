@@ -36,6 +36,55 @@ export default function TeleprompterPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [videoBlobUrl, setVideoBlobUrl] = useState('')
 
+  // Processing State
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [finalVideoUrl, setFinalVideoUrl] = useState('');
+
+  const startProcessing = async () => {
+    if (!token) return;
+    setIsProcessing(true);
+    try {
+      // 1. Trigger Processing
+      const res = await fetch('/api/video/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      const data = await res.json();
+
+      if (!data.success || !data.projectId) {
+        throw new Error(data.message || 'Failed to start processing');
+      }
+
+      const projectId = data.projectId;
+
+      // 2. Poll for status
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/video/status?id=${projectId}&token=${token}`);
+          const statusData = await statusRes.json();
+
+          if (statusData.status === 'completed' && statusData.url) {
+            clearInterval(pollInterval);
+            setFinalVideoUrl(statusData.url);
+            setIsProcessing(false);
+          } else if (statusData.status === 'failed') {
+            clearInterval(pollInterval);
+            setIsProcessing(false);
+            alert('Video processing failed. Please try again.');
+          }
+        } catch (e) {
+          console.error('Polling error', e);
+        }
+      }, 5000); // Poll every 5 seconds
+
+    } catch (e: any) {
+      console.error(e);
+      alert(`Processing failed: ${e.message}`);
+      setIsProcessing(false);
+    }
+  };
+
   // Teleprompter opts
   const [overlayMode, setOverlayMode] = useState(true)
   const [mirror, setMirror] = useState(false)
@@ -82,14 +131,14 @@ export default function TeleprompterPage() {
         } else {
           setNotes("No script was saved. Please go back and select a script.");
         }
-        
+
         if (data?.video_url) {
           setVideoBlobUrl(data.video_url);
           setIsLoading(false);
-          return; // If video exists, we don't need to set up the camera
+          return;
         }
         if (error) {
-            console.error("Error fetching previous video:", error);
+          console.error("Error fetching previous video:", error);
         }
       }
 
@@ -99,9 +148,9 @@ export default function TeleprompterPage() {
         streamRef.current = s;
         if (videoRef.current) {
           videoRef.current.srcObject = s
-          await videoRef.current.play().catch(() => {})
+          await videoRef.current.play().catch(() => { })
         }
-      } catch (e) { 
+      } catch (e) {
         console.error('getUserMedia failed:', e)
         // Handle permission denied error gracefully
       } finally {
@@ -159,7 +208,7 @@ export default function TeleprompterPage() {
       chunksRef.current = []
       const rec = new MediaRecorder(streamRef.current, { mimeType: 'video/webm;codecs=vp9,opus' })
       recorderRef.current = rec
-      
+
       rec.onstop = async () => {
         pauseScroll();
         setIsUploading(true);
@@ -214,7 +263,7 @@ export default function TeleprompterPage() {
       }
 
       rec.ondataavailable = (e) => { if (e.data?.size) chunksRef.current.push(e.data) }
-      
+
       rec.start()
       setIsRecording(true)
       setIsPaused(false)
@@ -231,7 +280,7 @@ export default function TeleprompterPage() {
   }), [fontSize, lineHeight]);
 
   if (isLoading) {
-      return <div className="w-full min-h-screen flex items-center justify-center"><p>Loading...</p></div>;
+    return <div className="w-full min-h-screen flex items-center justify-center"><p>Loading...</p></div>;
   }
 
   return (
@@ -301,19 +350,19 @@ export default function TeleprompterPage() {
                     )}
                     <div className="absolute bottom-0 inset-x-0 bg-black/40 backdrop-blur-sm p-3 z-20">
                       <div className="flex items-center justify-between gap-4 w-full max-w-6xl mx-auto">
-                          <div className="flex flex-wrap items-center gap-3">
-                              <button type="button" className="icon-btn" title="Toggle overlay" onClick={() => setOverlayMode(v => !v)}><PanelsTopLeft className="h-5 w-5" /></button>
-                              <button type="button" className="icon-btn" title="Mirror video" onClick={() => setMirror(v => !v)}><FlipHorizontal className="h-5 w-5" /></button>
-                              <div className="hidden md:flex items-center gap-2"><Gauge className="h-4 w-4 opacity-70" /><input type="range" min={10} max={200} step={5} value={speedPxPerSec} onChange={(e)=>setSpeedPxPerSec(parseInt(e.target.value))} className="w-24" title="Scroll speed" /></div>
-                              <div className="hidden md:flex items-center gap-2"><Type className="h-4 w-4 opacity-70" /><input type="range" min={18} max={48} step={1} value={fontSize} onChange={(e)=>setFontSize(parseInt(e.target.value))} className="w-24" title="Font size" /></div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                              {!isRecording ? (<button className="control-btn-main" onClick={doCountdownThenRecord} title="Start Recording"><PlayCircle className="h-7 w-7" /></button>) : (<>{!isPaused ? (<button className="control-btn-main" onClick={pauseRecording} title="Pause"><PauseCircle className="h-7 w-7" /></button>) : (<button className="control-btn-main" onClick={resumeRecording} title="Resume"><Play className="h-7 w-7" /></button>)}<button className="control-btn-stop" onClick={stopRecording} title="Stop Recording"><Square className="h-7 w-7" /></button></>)}
-                          </div>
-                          <div className="flex items-center gap-3">
-                              {!autoScroll ? (<button className="icon-btn" onClick={startScroll} title="Start Scroll" disabled={isPaused}><Play className="h-5 w-5" /></button>) : (<button className="icon-btn" onClick={pauseScroll} title="Pause Scroll"><Pause className="h-5 w-5" /></button>)}
-                              <button className="icon-btn" onClick={resetScroll} title="Reset Scroll"><RotateCcw className="h-5 w-5" /></button>
-                          </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <button type="button" className="icon-btn" title="Toggle overlay" onClick={() => setOverlayMode(v => !v)}><PanelsTopLeft className="h-5 w-5" /></button>
+                          <button type="button" className="icon-btn" title="Mirror video" onClick={() => setMirror(v => !v)}><FlipHorizontal className="h-5 w-5" /></button>
+                          <div className="hidden md:flex items-center gap-2"><Gauge className="h-4 w-4 opacity-70" /><input type="range" min={10} max={200} step={5} value={speedPxPerSec} onChange={(e) => setSpeedPxPerSec(parseInt(e.target.value))} className="w-24" title="Scroll speed" /></div>
+                          <div className="hidden md:flex items-center gap-2"><Type className="h-4 w-4 opacity-70" /><input type="range" min={18} max={48} step={1} value={fontSize} onChange={(e) => setFontSize(parseInt(e.target.value))} className="w-24" title="Font size" /></div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {!isRecording ? (<button className="control-btn-main" onClick={doCountdownThenRecord} title="Start Recording"><PlayCircle className="h-7 w-7" /></button>) : (<>{!isPaused ? (<button className="control-btn-main" onClick={pauseRecording} title="Pause"><PauseCircle className="h-7 w-7" /></button>) : (<button className="control-btn-main" onClick={resumeRecording} title="Resume"><Play className="h-7 w-7" /></button>)}<button className="control-btn-stop" onClick={stopRecording} title="Stop Recording"><Square className="h-7 w-7" /></button></>)}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {!autoScroll ? (<button className="icon-btn" onClick={startScroll} title="Start Scroll" disabled={isPaused}><Play className="h-5 w-5" /></button>) : (<button className="icon-btn" onClick={pauseScroll} title="Pause Scroll"><Pause className="h-5 w-5" /></button>)}
+                          <button className="icon-btn" onClick={resetScroll} title="Reset Scroll"><RotateCcw className="h-5 w-5" /></button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -330,13 +379,27 @@ export default function TeleprompterPage() {
                     <h3 className="text-xl font-semibold mb-3">Uploading your video...</h3>
                     <p className="text-white/60">Please wait, this may take a moment.</p>
                   </div>
+                ) : isProcessing ? (
+                  <div className="text-center py-8">
+                    <h3 className="text-xl font-semibold mb-3">AI Magic in Progress...</h3>
+                    <p className="text-white/60 mb-4">We are removing fillers, fixing eye contact, and adding polish.</p>
+                    <div className="w-full max-w-md mx-auto bg-gray-700 rounded-full h-2.5 mb-4">
+                      <div className="bg-blue-600 h-2.5 rounded-full animate-pulse" style={{ width: '100%' }}></div>
+                    </div>
+                    <p className="text-xs text-white/40">This usually takes 1-2 minutes.</p>
+                  </div>
                 ) : (
                   <div>
                     <h3 className="text-xl font-semibold mb-3">Your Recording</h3>
-                    <video src={videoBlobUrl} controls className="w-full rounded-lg" />
+                    <video src={finalVideoUrl || videoBlobUrl} controls className="w-full rounded-lg" />
                     <div className="mt-2 flex gap-3">
-                      <a className="btn" href={videoBlobUrl} download={`recording-${Date.now()}.webm`}>Download</a>
-                      <button className="btn-secondary btn" onClick={() => setVideoBlobUrl('')}>Re-record</button>
+                      <a className="btn" href={finalVideoUrl || videoBlobUrl} download={`recording-${Date.now()}.webm`}>Download</a>
+                      {!finalVideoUrl && (
+                        <button className="btn-primary btn" onClick={startProcessing}>
+                          ✨ Enhance with AI
+                        </button>
+                      )}
+                      <button className="btn-secondary btn" onClick={() => { setVideoBlobUrl(''); setFinalVideoUrl(''); }}>Re-record</button>
                       <Link href={`/share?token=${token}`} className="btn">Next</Link>
                     </div>
                   </div>
