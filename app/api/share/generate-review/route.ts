@@ -43,6 +43,12 @@ Survey Answers: ${JSON.stringify(survey, null, 2)}
 
         const reviewText = completion.choices[0].message.content?.trim() || '';
 
+        // Save generated review to DB
+        await supabaseAdmin
+            .from('endorser_invite_sessions')
+            .update({ ai_generated_review: reviewText })
+            .eq('id', token);
+
         return NextResponse.json({ success: true, reviewText });
 
     } catch (e: any) {

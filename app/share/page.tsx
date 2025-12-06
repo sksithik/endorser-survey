@@ -41,7 +41,7 @@ function SharePageContent() {
                 // Fetch video URL from Supabase
                 const { data: sessionData, error: sessionError } = await supabase
                     .from('endorser_invite_sessions')
-                    .select('final_video_url, video_url, survey, review_link')
+                    .select('final_video_url, video_url, survey, review_link, ai_generated_review')
                     .eq('id', token)
                     .single();
 
@@ -58,6 +58,9 @@ function SharePageContent() {
                 setVideoUrl(urlToUse);
                 if (sessionData.review_link) {
                     setReviewLink(sessionData.review_link);
+                }
+                if (sessionData.ai_generated_review) {
+                    setGeneratedReview(sessionData.ai_generated_review);
                 }
 
                 // Generate shareable content
@@ -113,6 +116,34 @@ function SharePageContent() {
             generate();
         }
     }, [token, reviewLink, generatedReview, isGeneratingReview, hasAttemptedGeneration]);
+
+    const saveReview = async (review: string) => {
+        if (!token) return;
+        try {
+            await fetch('/api/share/save-review', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, reviewText: review }),
+            });
+        } catch (e) {
+            console.error('Failed to save review:', e);
+        }
+    };
+
+    const handleReviewChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const newReview = e.target.value;
+        setGeneratedReview(newReview);
+    };
+
+    // Auto-save debouncer
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            if (generatedReview && token) {
+                saveReview(generatedReview);
+            }
+        }, 1000);
+        return () => clearTimeout(timeoutId);
+    }, [generatedReview, token]);
 
     const handleCopyLink = () => {
         if (videoUrl) {
@@ -209,7 +240,7 @@ function SharePageContent() {
                                         <>
                                             <textarea
                                                 value={generatedReview}
-                                                onChange={(e) => setGeneratedReview(e.target.value)}
+                                                onChange={handleReviewChange}
                                                 className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white text-sm min-h-[100px] focus:ring-2 focus:ring-emerald-500/50 outline-none resize-none mb-4"
                                                 placeholder="Write your review here..."
                                             />
