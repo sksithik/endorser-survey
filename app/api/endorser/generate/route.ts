@@ -27,9 +27,9 @@ export async function POST(req: Request) {
   let answers: any = {};
   if (surveySessionId) {
     const { data, error } = await supabase
-      .from('endorser_survey_sessions')
+      .from('endorser_invite_sessions')
       .select('survey')
-      .eq('session_id', surveySessionId)
+      .eq('id', surveySessionId)
       .single();
     if (error || !data) return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     answers = data.survey || {};

@@ -12,9 +12,9 @@ export async function GET(request: Request) {
 
   try {
     const { data, error } = await supabase
-      .from('endorser_survey_sessions')
-      .select('session_id, intro') // also selecting 'intro' to get branding, assuming it's there
-      .eq('session_id', token)
+      .from('endorser_invite_sessions')
+      .select('id, intro') // also selecting 'intro' to get branding, assuming it's there
+      .eq('id', token)
       .single();
 
     if (error || !data) {

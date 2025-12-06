@@ -67,7 +67,7 @@ const getSentimentFromAI = async (prompt: string): Promise<number> => {
 const getSentimentScore = async (questions: Question[], answers: Record<string, string>): Promise<number> => {
   // Build a prompt for the AI
   let prompt = "Analyze the sentiment of the following user feedback:\n\n";
-  
+
   questions.forEach(question => {
     const answer = answers[question.id] || "No answer provided.";
     prompt += `Question: ${question.text}\nAnswer: ${answer}\n\n`;
@@ -87,9 +87,9 @@ export async function POST(request: Request) {
 
   // 1. Fetch the session from Supabase to get the dynamic questions and user_id
   const { data: sessionData, error: sessionError } = await supabase
-    .from('endorser_survey_sessions')
+    .from('endorser_invite_sessions')
     .select('questions, user_id') // Also fetch user_id for rewards
-    .eq('session_id', token)
+    .eq('id', token)
     .single();
 
   if (sessionError || !sessionData) {
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
   console.log(`Final Sentiment Score: ${sentimentScore.toFixed(2)}, Journey: ${journey}`);
 
   // 3. Optionally, save the sentiment score and journey to the database
-  // await supabase.from('endorser_responses').update({ derived: { sentimentScore, journey } }).eq('survey_session_id', token);
+  // await supabase.from('endorser_responses').update({ derived: { sentimentScore, journey } }).eq('survey_id', token);
 
   return NextResponse.json({
     success: true,

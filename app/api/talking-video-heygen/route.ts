@@ -23,9 +23,9 @@ export async function POST(req: NextRequest) {
 
         // 1. Fetch session data from Supabase
         const { data: sessionData, error: sessionError } = await supabaseAdmin
-            .from('endorser_survey_sessions')
+            .from('endorser_invite_sessions')
             .select('selfie_public_url, generated_audio_url, selected_script')
-            .eq('session_id', token)
+            .eq('id', token)
             .single();
 
         if (sessionError || !sessionData) {
@@ -121,9 +121,9 @@ export async function GET(req: NextRequest) {
 
             if (status === 'completed' && url) {
                 await supabaseAdmin
-                    .from('endorser_survey_sessions')
+                    .from('endorser_invite_sessions')
                     .update({ final_video_url: url })
-                    .eq('session_id', token);
+                    .eq('id', token);
             }
 
             const payload: any = { status, url };

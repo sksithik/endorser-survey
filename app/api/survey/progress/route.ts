@@ -11,12 +11,12 @@ export async function POST(request: Request) {
 
   try {
     const { error } = await supabase
-      .from('endorser_survey_sessions')
+      .from('endorser_invite_sessions')
       .update({
         survey: answers,
         current_step: currentStep,
       })
-      .eq('session_id', token);
+      .eq('id', token);
 
     if (error) {
       console.error('Supabase progress save error:', error);

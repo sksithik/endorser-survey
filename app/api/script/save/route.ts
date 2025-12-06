@@ -11,9 +11,9 @@ export async function POST(request: Request) {
 
   try {
     const { error } = await supabaseAdmin
-      .from('endorser_survey_sessions')
+      .from('endorser_invite_sessions')
       .update({ selected_script: script })
-      .eq('session_id', token);
+      .eq('id', token);
 
     if (error) {
       console.error('Error saving script:', error);

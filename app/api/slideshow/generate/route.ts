@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
             });
         });
 
-    const videoData = fs.readFileSync(videoPath);
+        const videoData = fs.readFileSync(videoPath);
         const videoBlob = new Blob([videoData], { type: 'video/mp4' });
 
         const videoFilePath = `slideshows/${token}.mp4`;
@@ -171,9 +171,9 @@ export async function POST(req: NextRequest) {
         const publicUrl = urlData.publicUrl;
 
         await supabaseAdmin
-            .from('endorser_survey_sessions')
+            .from('endorser_invite_sessions')
             .update({ final_video_url: publicUrl })
-            .eq('session_id', token);
+            .eq('id', token);
 
         // Clean up temp files
         try {

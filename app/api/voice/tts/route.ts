@@ -67,15 +67,15 @@ export async function POST(req: NextRequest) {
 
         const { data: signedUrlData } = supabaseAdmin.storage
             .from('quotes-bucket')
-.getPublicUrl(generatedAudioPath);
+            .getPublicUrl(generatedAudioPath);
 
         const generatedAudioUrl = signedUrlData.publicUrl;
 
         // 3. Update the session with the new generated audio URL
         await supabaseAdmin
-            .from('endorser_survey_sessions')
+            .from('endorser_invite_sessions')
             .update({ generated_audio_url: generatedAudioUrl })
-            .eq('session_id', token);
+            .eq('id', token);
 
         return NextResponse.json({ success: true, generated_audio_url: generatedAudioUrl });
 

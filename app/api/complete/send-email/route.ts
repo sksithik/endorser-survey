@@ -68,9 +68,9 @@ export async function POST(request: Request) {
   try {
     // Fetch session data to get video URL and survey details
     const { data: sessionData, error: sessionError } = await supabase
-      .from('endorser_survey_sessions')
+      .from('endorser_invite_sessions')
       .select('final_video_url, survey')
-      .eq('session_id', token)
+      .eq('id', token)
       .single();
 
     if (sessionError || !sessionData) {

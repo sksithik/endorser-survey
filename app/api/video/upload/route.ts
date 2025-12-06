@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   let filePath = `${token}/${fileName}`;
 
   try {
-    // Attempt to resolve user_id from the token (which is the session_id)
+    // Attempt to resolve user_id from the token (which is the id)
     const { data: session } = await supabaseAdmin
       .from('endorser_invite_sessions')
       .select('user_id')

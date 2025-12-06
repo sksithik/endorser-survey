@@ -66,9 +66,9 @@ export default async function WelcomePage({
 
   // Fetch session data, including the new consent_given field
   const { data, error } = await supabase
-    .from('endorser_survey_sessions')
+    .from('endorser_invite_sessions')
     .select('intro, consent_given') // <-- UPDATED SELECT
-    .eq('session_id', sessionId)
+    .eq('id', sessionId)
     .single<SessionData>();
 
   if (error || !data) {

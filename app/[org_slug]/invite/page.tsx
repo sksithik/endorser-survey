@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 // For now we generate a client-side link to start the survey. In a full implementation
-// you would call an API to create a new endorser_survey_sessions row and return session_id.
+// you would call an API to create a new endorser_invite_sessions row and return id.
 
 interface InvitePageProps {
   params: { org_slug: string };

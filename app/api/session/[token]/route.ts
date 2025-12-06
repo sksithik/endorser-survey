@@ -11,16 +11,16 @@ export async function GET(request: Request, { params }: { params: { token: strin
 
   try {
     const { data, error } = await supabaseAdmin
-      .from('endorser_survey_sessions')
+      .from('endorser_invite_sessions')
       .select('selfie_public_url, voice_public_url, selected_script, generated_audio_url, final_video_url')
-      .eq('session_id', token)
+      .eq('id', token)
       .single();
 
     if (error) {
       console.error('Error fetching session:', error);
       // If no row is found, single() returns an error. This is expected.
       // We can return a success response with null data.
-      if (error.code === 'PGRST116') { 
+      if (error.code === 'PGRST116') {
         return NextResponse.json({ success: true, data: null });
       }
       return NextResponse.json({ success: false, message: error.message }, { status: 500 });

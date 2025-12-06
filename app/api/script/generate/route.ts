@@ -42,9 +42,9 @@ export async function POST(request: Request) {
 
   try {
     const { data, error } = await supabase
-      .from('endorser_survey_sessions')
+      .from('endorser_invite_sessions')
       .select('survey')
-      .eq('session_id', token)
+      .eq('id', token)
       .single();
 
     if (error || !data) {

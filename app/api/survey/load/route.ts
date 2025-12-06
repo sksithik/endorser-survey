@@ -12,9 +12,9 @@ export async function GET(request: Request) {
 
   try {
     const { data, error } = await supabase
-      .from('endorser_survey_sessions')
+      .from('endorser_invite_sessions')
       .select('questions, survey, current_step, intro') // Ensure 'questions' is selected
-      .eq('session_id', token)
+      .eq('id', token)
       .single();
 
     if (error || !data) {
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
     const questions = Array.isArray(data.questions) ? data.questions : [];
     let currentStep = data.current_step || 0;
-    
+
     // Validate currentStep against the actual dynamic questions length
     const maxStep = questions.length > 0 ? questions.length - 1 : 0;
     if (currentStep > maxStep) {

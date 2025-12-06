@@ -121,9 +121,9 @@ export default function TeleprompterPage() {
       // First, check if a video already exists for this session
       if (token) {
         const { data, error } = await supabase
-          .from('endorser_survey_sessions')
+          .from('endorser_invite_sessions')
           .select('video_url, selected_script')
-          .eq('session_id', token)
+          .eq('id', token)
           .single();
 
         if (data?.selected_script) {

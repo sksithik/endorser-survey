@@ -34,9 +34,9 @@ export async function POST(req: NextRequest) {
     }
 
     const { error: dbError } = await supabaseAdmin
-      .from('endorser_survey_sessions')
+      .from('endorser_invite_sessions')
       .update({ voice_public_url: urlData.publicUrl })
-      .eq('session_id', token);
+      .eq('id', token);
 
     if (dbError) {
       console.error('Supabase DB error:', dbError);

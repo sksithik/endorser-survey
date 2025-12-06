@@ -16,12 +16,12 @@ export async function grantConsent(sessionId: string) {
 
   try {
     const { error } = await supabase
-      .from('endorser_survey_sessions')
+      .from('endorser_invite_sessions')
       .update({
         consent_given: true,
         consent_given_at: new Date().toISOString(),
       })
-      .eq('session_id', sessionId)
+      .eq('id', sessionId)
 
     if (error) {
       console.error('Supabase consent update error:', error)

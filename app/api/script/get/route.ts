@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
 
   try {
     const { data, error } = await supabaseAdmin
-      .from('endorser_survey_sessions')
+      .from('endorser_invite_sessions')
       .select('selected_script')
-      .eq('session_id', token)
+      .eq('id', token)
       .single();
 
     if (error) {

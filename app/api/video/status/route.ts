@@ -40,9 +40,9 @@ export async function GET(req: NextRequest) {
         // 2. If completed, update Supabase
         if (status === 'completed' && finalUrl) {
             await supabaseAdmin
-                .from('endorser_survey_sessions')
+                .from('endorser_invite_sessions')
                 .update({ final_video_url: finalUrl })
-                .eq('session_id', token);
+                .eq('id', token);
         }
 
         return NextResponse.json({

@@ -28,7 +28,7 @@ Tables (add via SQL migrations in Supabase):
 - endorser_users(id, total_points, ...)
 - reward_events(id, user_id, action, source, points, usd_value, metadata jsonb, created_at)
 - point_transactions(id, user_id, delta, balance_after, reward_event_id, reason, metadata jsonb, created_at)
-- endorser_responses(id, user_id, org_slug, survey_session_id, answers jsonb, derived jsonb, created_at)
+- endorser_responses(id, user_id, org_slug, survey_id, answers jsonb, derived jsonb, created_at)
 - referrals(id, referrer_user_id, referral_code, lead_email, lead_status, bounty_points_target, bounty_points_awarded, closed_won_at, metadata jsonb, created_at)
 
 Example SQL (simplified – adjust types/indexes):
@@ -62,7 +62,7 @@ create table endorser_responses (
 	created_at timestamptz default now(),
 	user_id uuid references endorser_users(id) on delete cascade,
 	org_slug text not null,
-	survey_session_id text,
+	survey_id text,
 	answers jsonb not null,
 	derived jsonb
 );

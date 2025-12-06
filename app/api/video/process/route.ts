@@ -21,9 +21,9 @@ export async function POST(req: NextRequest) {
 
         // 1. Fetch session data to get the raw video URL
         const { data: sessionData, error: sessionError } = await supabaseAdmin
-            .from('endorser_survey_sessions')
+            .from('endorser_invite_sessions')
             .select('video_url')
-            .eq('session_id', token)
+            .eq('id', token)
             .single();
 
         if (sessionError || !sessionData?.video_url) {

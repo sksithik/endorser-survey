@@ -11,9 +11,9 @@ export async function POST(request: Request) {
 
   try {
     const { data, error } = await supabase
-      .from('endorser_survey_sessions')
+      .from('endorser_invite_sessions')
       .select('survey')
-      .eq('session_id', token)
+      .eq('id', token)
       .single();
 
     if (error || !data) {
@@ -26,13 +26,13 @@ export async function POST(request: Request) {
     // For now, we'll use mock data.
 
     const generatedContent = {
-        emailSubject: `Check out my experience with ${survey?.projectName || 'Innovate Inc.'}`,
-        emailBody: `Hi,
+      emailSubject: `Check out my experience with ${survey?.projectName || 'Innovate Inc.'}`,
+      emailBody: `Hi,
 
 I just recorded a video about my experience with ${survey?.projectName || 'Innovate Inc.'} and wanted to share it with you. I hope you find it insightful!
 
 You can watch the video here: `,
-        socialText: `I just shared my experience with ${survey?.projectName || 'Innovate Inc.'}! Check out my video testimonial.`, 
+      socialText: `I just shared my experience with ${survey?.projectName || 'Innovate Inc.'}! Check out my video testimonial.`,
     };
 
     return NextResponse.json({ success: true, ...generatedContent });

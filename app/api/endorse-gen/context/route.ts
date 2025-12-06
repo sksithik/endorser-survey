@@ -12,9 +12,9 @@ export async function GET(request: Request) {
 
     try {
         const { data, error } = await supabase
-            .from('endorser_survey_sessions')
-            .select('survey, session_id') // We might need to join with other tables for industry/ROI
-            .eq('session_id', token)
+            .from('endorser_invite_sessions')
+            .select('survey, id') // We might need to join with other tables for industry/ROI
+            .eq('id', token)
             .single();
 
         if (error || !data) {

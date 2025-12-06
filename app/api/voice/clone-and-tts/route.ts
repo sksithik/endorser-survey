@@ -21,9 +21,9 @@ export async function POST(req: NextRequest) {
 
         // 1. Fetch session data from Supabase
         const { data: sessionData, error: sessionError } = await supabaseAdmin
-            .from('endorser_survey_sessions')
+            .from('endorser_invite_sessions')
             .select('voice_public_url, selected_script')
-            .eq('session_id', token)
+            .eq('id', token)
             .single();
 
         if (sessionError || !sessionData) {
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
         const formData = new FormData();
         formData.append('name', `EndorserVoice_${token}`);
         formData.append('files', voiceBlob, 'user_voice.webm');
-        
+
         const addVoiceRes = await fetch(`${ELEVENLABS_BASE}/v1/voices/add`, {
             method: 'POST',
             headers: { 'xi-api-key': elevenlabsApiKey },
@@ -94,9 +94,9 @@ export async function POST(req: NextRequest) {
 
         // 6. Save the new URL to the session table
         const { error: dbError } = await supabaseAdmin
-            .from('endorser_survey_sessions')
+            .from('endorser_invite_sessions')
             .update({ generated_audio_url: generatedAudioUrl })
-            .eq('session_id', token);
+            .eq('id', token);
 
         if (dbError) throw dbError;
 

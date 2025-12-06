@@ -46,9 +46,9 @@ export default function HomePage() {
     debounce(async (payload: any) => {
       if (!sessionId) return
       const { error } = await supabase
-        .from('endorser_survey_sessions')
+        .from('endorser_invite_sessions')
         .update(payload)
-        .eq('session_id', sessionId)
+        .eq('id', sessionId)
       if (error) console.error('Error saving progress:', error)
     }, 800),
     [sessionId]
@@ -59,9 +59,9 @@ export default function HomePage() {
       if (!sessionId) { setIsLoading(false); return }
       setIsLoading(true)
       const { data, error } = await supabase
-        .from('endorser_survey_sessions')
+        .from('endorser_invite_sessions')
         .select('survey, current_step, selfie, selfie_public_url, notes, mode, voice_url, video_url')
-        .eq('session_id', sessionId)
+        .eq('id', sessionId)
         .single()
       if (data) {
         if (data.survey) setQas(data.survey as QA[])
@@ -126,9 +126,9 @@ export default function HomePage() {
       return true
     }
     if (mode === 'avatar') {
-        const avatarStep = qas.length + 1
-        if (step === avatarStep) return true // Placeholder step, always allow next
-        return true
+      const avatarStep = qas.length + 1
+      if (step === avatarStep) return true // Placeholder step, always allow next
+      return true
     }
     return true
   }

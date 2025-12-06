@@ -9,28 +9,28 @@ export async function POST(request: Request) {
     }
 
     try {
-        // Upsert into endorser_survey_sessions
-        // We assume session_id is the token.
+        // Upsert into endorser_invite_sessions
+        // We assume id is the token.
         // We also need to ensure we don't lose existing data if we update.
 
         // First check if it exists
         const { data: existing, error: fetchError } = await supabaseAdmin
-            .from('endorser_survey_sessions')
+            .from('endorser_invite_sessions')
             .select('id')
-            .eq('session_id', token)
+            .eq('id', token)
             .single();
 
         let error;
         if (existing) {
             const { error: updateError } = await supabaseAdmin
-                .from('endorser_survey_sessions')
+                .from('endorser_invite_sessions')
                 .update({ survey: answers })
-                .eq('session_id', token);
+                .eq('id', token);
             error = updateError;
         } else {
             const { error: insertError } = await supabaseAdmin
-                .from('endorser_survey_sessions')
-                .insert({ session_id: token, survey: answers });
+                .from('endorser_invite_sessions')
+                .insert({ id: token, survey: answers });
             error = insertError;
         }
 

@@ -13,7 +13,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function inspect() {
     const { data, error } = await supabase
-        .from('endorser_survey_sessions')
+        .from('endorser_invite_sessions')
         .select('*')
         .limit(1);
 

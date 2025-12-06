@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   let filePath = `selfies/${token}/${file.name}`;
 
   try {
-    // Attempt to resolve user_id from the token (which is the session_id)
+    // Attempt to resolve user_id from the token (which is the id)
     const { data: session } = await supabaseAdmin
       .from('endorser_invite_sessions')
       .select('user_id')
@@ -44,11 +44,11 @@ export async function POST(request: Request) {
 
     const publicUrl = urlData.publicUrl;
 
-    // Update the endorser_survey_sessions table
+    // Update the endorser_invite_sessions table
     const { error: dbError } = await supabaseAdmin
-      .from('endorser_survey_sessions')
+      .from('endorser_invite_sessions')
       .update({ selfie_public_url: publicUrl })
-      .eq('session_id', token);
+      .eq('id', token);
 
     if (dbError) {
       console.error('Error updating database:', dbError);

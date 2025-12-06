@@ -37,9 +37,9 @@ export async function POST(req: NextRequest) {
 
         // 1. Fetch session data from Supabase
         const { data: sessionData, error: sessionError } = await supabaseAdmin
-            .from('endorser_survey_sessions')
+            .from('endorser_invite_sessions')
             .select('full_audio_public_url, elevenlabs_voice_id, selected_script')
-            .eq('session_id', token)
+            .eq('id', token)
             .single();
 
         if (sessionError || !sessionData) {
@@ -108,9 +108,9 @@ export async function POST(req: NextRequest) {
         const generatedAudioPath = `generated-audio/${token}-cleaned.mp3`;
         const { error: uploadError } = await supabaseAdmin.storage
             .from('endorser-assets')
-            .upload(generatedAudioPath, ttsAudioBlob, { 
-                contentType: 'audio/mpeg', 
-                upsert: true 
+            .upload(generatedAudioPath, ttsAudioBlob, {
+                contentType: 'audio/mpeg',
+                upsert: true
             });
 
         if (uploadError) {
@@ -125,9 +125,9 @@ export async function POST(req: NextRequest) {
 
         // 6. Update the session with the new generated audio URL
         await supabaseAdmin
-            .from('endorser_survey_sessions')
+            .from('endorser_invite_sessions')
             .update({ generated_audio_url: generatedAudioUrl })
-            .eq('session_id', token);
+            .eq('id', token);
 
         return NextResponse.json({ success: true, generated_audio_url: generatedAudioUrl });
 

@@ -10,14 +10,14 @@ export async function POST(request: Request) {
 
     try {
         // We need to update the session with the chosen action.
-        // Assuming endorser_survey_sessions has a field for this or we store it in metadata/survey.
+        // Assuming endorser_invite_sessions has a field for this or we store it in metadata/survey.
         // Let's assume we can store it in a new column or merge into survey json.
         // Merging into survey json is safest if we don't know the schema.
 
         const { data: existing, error: fetchError } = await supabaseAdmin
-            .from('endorser_survey_sessions')
+            .from('endorser_invite_sessions')
             .select('survey')
-            .eq('session_id', token)
+            .eq('id', token)
             .single();
 
         if (fetchError || !existing) {
@@ -31,9 +31,9 @@ export async function POST(request: Request) {
         };
 
         const { error: updateError } = await supabaseAdmin
-            .from('endorser_survey_sessions')
+            .from('endorser_invite_sessions')
             .update({ survey: updatedSurvey })
-            .eq('session_id', token);
+            .eq('id', token);
 
         if (updateError) {
             console.error('Error saving selection:', updateError);
