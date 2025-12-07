@@ -19,7 +19,7 @@ export default function LandingWizard({ session, config, company }: Props) {
     const review = session.ai_generated_review;
     // Fallback: If no company video is configured, use the session video or skip? 
     // The requirement implies there IS a company video. If not, maybe use a placeholder or check config.
-    const companyVideoUrl = config?.hero?.videoSource;
+    const companyVideoUrl = config?.hero?.videoSource || 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4';
     const primaryColor = company.color || '#3b82f6';
 
     const nextStep = () => setStep(s => Math.min(s + 1, 3));
