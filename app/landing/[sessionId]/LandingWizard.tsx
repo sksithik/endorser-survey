@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Star, CheckCircle, ArrowRight, ArrowLeft, Send } from 'lucide-react';
-import { Database } from '@/lib/database.types';
+import { CheckCircle, ArrowRight, ArrowLeft, Send } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
 
 // Define types based on what we passed from the server
 type Props = {
@@ -14,6 +14,14 @@ type Props = {
 
 export default function LandingWizard({ session, config, company }: Props) {
     const [step, setStep] = useState(1);
+    const [formData, setFormData] = useState({
+        name: '',
+        email: '',
+        message: ''
+    });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSubmitted, setIsSubmitted] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const videoUrl = session.final_video_url || session.video_url;
     const review = session.ai_generated_review;
@@ -24,6 +32,45 @@ export default function LandingWizard({ session, config, company }: Props) {
 
     const nextStep = () => setStep(s => Math.min(s + 1, 3));
     const prevStep = () => setStep(s => Math.max(s - 1, 1));
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        setError(null);
+
+        // Basic validation
+        if (!formData.name || !formData.email) {
+            setError('Please fill in Name and Email.');
+            setIsSubmitting(false);
+            return;
+        }
+
+        try {
+            const { error: insertError } = await supabase
+                .from('leads')
+                .insert({
+                    session_id: session.id,
+                    user_id: session.user_id,
+                    name: formData.name,
+                    email: formData.email,
+                    message: formData.message,
+                });
+
+            if (insertError) throw insertError;
+
+            setIsSubmitted(true);
+        } catch (err: any) {
+            console.error('Error submitting lead:', err);
+            setError(err.message || 'Something went wrong. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const fadeIn = {
         initial: { opacity: 0, x: 20 },
@@ -189,39 +236,66 @@ export default function LandingWizard({ session, config, company }: Props) {
                                 </div>
 
                                 <div className="md:w-2/3 p-8 md:p-12 flex flex-col justify-center">
-                                    <form className="space-y-6 max-w-md mx-auto w-full">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                                            <input
-                                                type="text"
-                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-opacity-50 outline-none transition-all bg-gray-50 focus:bg-white"
-                                                style={{ borderColor: 'transparent', boxShadow: `0 0 0 1px transparent` }}
-                                                placeholder="John Doe"
-                                            />
+                                    {isSubmitted ? (
+                                        <div className="text-center py-12">
+                                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                                <CheckCircle className="w-10 h-10 text-green-500" />
+                                            </div>
+                                            <h3 className="text-3xl font-bold text-gray-900 mb-4">Thank You!</h3>
+                                            <p className="text-gray-600 mb-8 text-lg">We have received your enquiry and will be in touch shortly.</p>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                                            <input
-                                                type="email"
-                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-opacity-50 outline-none transition-all bg-gray-50 focus:bg-white"
-                                                placeholder="john@example.com"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Message (Optional)</label>
-                                            <textarea
-                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-opacity-50 outline-none transition-all bg-gray-50 focus:bg-white h-32 resize-none"
-                                                placeholder="Tell us about your needs..."
-                                            />
-                                        </div>
-                                        <button
-                                            type="button" // Change to submit when connected
-                                            className="w-full py-4 rounded-xl font-bold text-white text-lg transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 flex items-center justify-center gap-2"
-                                            style={{ backgroundColor: primaryColor }}
-                                        >
-                                            Send Enquiry <Send className="w-5 h-5" />
-                                        </button>
-                                    </form>
+                                    ) : (
+                                        <form onSubmit={handleSubmit} className="space-y-6 max-w-md mx-auto w-full">
+                                            {error && (
+                                                <div className="text-red-500 text-sm bg-red-50 p-3 rounded-lg">
+                                                    {error}
+                                                </div>
+                                            )}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                                                <input
+                                                    type="text"
+                                                    name="name"
+                                                    value={formData.name}
+                                                    onChange={handleInputChange}
+                                                    required
+                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-opacity-50 outline-none transition-all bg-gray-50 focus:bg-white"
+                                                    style={{ borderColor: 'transparent', boxShadow: `0 0 0 1px transparent` }}
+                                                    placeholder="John Doe"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                                                <input
+                                                    type="email"
+                                                    name="email"
+                                                    value={formData.email}
+                                                    onChange={handleInputChange}
+                                                    required
+                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-opacity-50 outline-none transition-all bg-gray-50 focus:bg-white"
+                                                    placeholder="john@example.com"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Message (Optional)</label>
+                                                <textarea
+                                                    name="message"
+                                                    value={formData.message}
+                                                    onChange={handleInputChange}
+                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-opacity-50 outline-none transition-all bg-gray-50 focus:bg-white h-32 resize-none"
+                                                    placeholder="Tell us about your needs..."
+                                                />
+                                            </div>
+                                            <button
+                                                type="submit"
+                                                disabled={isSubmitting}
+                                                className="w-full py-4 rounded-xl font-bold text-white text-lg transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                                style={{ backgroundColor: primaryColor }}
+                                            >
+                                                {isSubmitting ? 'Sending...' : 'Send Enquiry'} <Send className="w-5 h-5" />
+                                            </button>
+                                        </form>
+                                    )}
                                 </div>
                             </motion.div>
                         )}
