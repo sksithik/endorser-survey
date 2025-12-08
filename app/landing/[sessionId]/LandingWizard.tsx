@@ -14,9 +14,11 @@ type Props = {
 
 export default function LandingWizard({ session, config, company }: Props) {
     const [step, setStep] = useState(1);
+    const [offerAccepted, setOfferAccepted] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
         email: '',
+        phone: '',
         message: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,13 +27,18 @@ export default function LandingWizard({ session, config, company }: Props) {
 
     const videoUrl = session.final_video_url || session.video_url;
     const review = session.ai_generated_review;
-    // Fallback: If no company video is configured, use the session video or skip? 
-    // The requirement implies there IS a company video. If not, maybe use a placeholder or check config.
     const companyVideoUrl = config?.hero?.videoSource || 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4';
     const primaryColor = company.color || '#3b82f6';
 
-    const nextStep = () => setStep(s => Math.min(s + 1, 3));
+    const MAX_STEPS = 4;
+
+    const nextStep = () => setStep(s => Math.min(s + 1, MAX_STEPS));
     const prevStep = () => setStep(s => Math.max(s - 1, 1));
+
+    const handleOfferChoice = (accepted: boolean) => {
+        setOfferAccepted(accepted);
+        nextStep();
+    };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -51,6 +58,11 @@ export default function LandingWizard({ session, config, company }: Props) {
         }
 
         try {
+            // Prepend offer status to message if accepted
+            const finalMessage = offerAccepted
+                ? `[OFFER CLAIMED] ${formData.message || ''}`.trim()
+                : formData.message;
+
             const { error: insertError } = await supabase
                 .from('leads')
                 .insert({
@@ -58,7 +70,8 @@ export default function LandingWizard({ session, config, company }: Props) {
                     user_id: session.user_id,
                     name: formData.name,
                     email: formData.email,
-                    message: formData.message,
+                    phone: formData.phone,
+                    message: finalMessage,
                 });
 
             if (insertError) throw insertError;
@@ -105,7 +118,7 @@ export default function LandingWizard({ session, config, company }: Props) {
             <div className="w-full max-w-4xl mt-20 md:mt-0">
                 {/* Progress Indicator */}
                 <div className="flex justify-center mb-8 gap-2">
-                    {[1, 2, 3].map((s) => (
+                    {[1, 2, 3, 4].map((s) => (
                         <div
                             key={s}
                             className={`h-2 rounded-full transition-all duration-300 ${s === step ? 'w-8' : 'w-2'}`}
@@ -202,16 +215,66 @@ export default function LandingWizard({ session, config, company }: Props) {
                                         className="px-8 py-3 rounded-xl font-bold text-white text-lg transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 inline-flex items-center gap-2"
                                         style={{ backgroundColor: primaryColor }}
                                     >
-                                        Contact Us <ArrowRight className="w-5 h-5" />
+                                        Next Step <ArrowRight className="w-5 h-5" />
                                     </button>
                                 </div>
                             </motion.div>
                         )}
 
-                        {/* STEP 3: Enquiry Form */}
+                        {/* STEP 3: The Referral Offer */}
                         {step === 3 && (
                             // @ts-ignore
-                            <motion.div key="step3" {...fadeIn} className="flex-grow flex flex-col md:flex-row h-full">
+                            <motion.div key="step3" {...fadeIn} className="flex-grow flex flex-col h-full bg-gray-50">
+                                <div className="flex-grow flex flex-col items-center justify-center p-8 text-center max-w-2xl mx-auto w-full">
+                                    {/* Back Button */}
+                                    <div className="w-full max-w-2xl text-left mb-6">
+                                        <button onClick={prevStep} className="text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors">
+                                            <ArrowLeft className="w-4 h-4" /> Back
+                                        </button>
+                                    </div>
+
+                                    <div className="bg-white p-8 md:p-12 rounded-3xl shadow-xl w-full border border-blue-50 relative overflow-hidden">
+                                        {/* Decorative background blob */}
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100 rounded-bl-full opacity-50 -mr-10 -mt-10"></div>
+
+                                        <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-6 text-2xl animate-bounce">
+                                            🎁
+                                        </div>
+
+                                        <h2 className="text-3xl font-bold text-gray-900 mb-4 leading-tight">
+                                            Because you were referred by <span style={{ color: primaryColor }}>{session.survey?.name || 'a friend'}</span>...
+                                        </h2>
+
+                                        <p className="text-xl text-gray-600 mb-8 leading-relaxed">
+                                            We'd like to make this easier for you. Use the link below to get a
+                                            <span className="font-bold text-gray-800"> Priority Consultation</span> so you can get clarity without any pressure.
+                                        </p>
+
+                                        <div className="space-y-4">
+                                            <button
+                                                onClick={() => handleOfferChoice(true)}
+                                                className="w-full py-4 rounded-xl font-bold text-white text-lg transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 flex items-center justify-center gap-2"
+                                                style={{ backgroundColor: primaryColor }}
+                                            >
+                                                Yes, Continue & Claim Offer <ArrowRight className="w-5 h-5" />
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleOfferChoice(false)}
+                                                className="text-sm text-gray-400 hover:text-gray-600 transition-colors py-2"
+                                            >
+                                                No thanks, I'll just enquire normally
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {/* STEP 4: Enquiry Form */}
+                        {step === 4 && (
+                            // @ts-ignore
+                            <motion.div key="step4" {...fadeIn} className="flex-grow flex flex-col md:flex-row h-full">
                                 <div className="md:w-1/3 bg-gray-50 p-8 flex flex-col justify-center border-r border-gray-100">
                                     <button onClick={prevStep} className="self-start mb-8 text-gray-400 hover:text-gray-600 flex items-center gap-1">
                                         <ArrowLeft className="w-4 h-4" /> Back
@@ -232,6 +295,14 @@ export default function LandingWizard({ session, config, company }: Props) {
                                             <CheckCircle className="w-5 h-5 text-emerald-500" />
                                             <span>No Obligations</span>
                                         </div>
+                                        {offerAccepted && (
+                                            <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                                                <div className="flex items-center gap-2 text-blue-700 font-semibold mb-1">
+                                                    <span className="text-lg">🎁</span> Offer Active
+                                                </div>
+                                                <p className="text-sm text-blue-600">Your priority consultation request will be attached.</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -277,13 +348,24 @@ export default function LandingWizard({ session, config, company }: Props) {
                                                 />
                                             </div>
                                             <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number (Optional)</label>
+                                                <input
+                                                    type="tel"
+                                                    name="phone"
+                                                    value={formData.phone}
+                                                    onChange={handleInputChange}
+                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-opacity-50 outline-none transition-all bg-gray-50 focus:bg-white"
+                                                    placeholder="+1 (555) 000-0000"
+                                                />
+                                            </div>
+                                            <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">Message (Optional)</label>
                                                 <textarea
                                                     name="message"
                                                     value={formData.message}
                                                     onChange={handleInputChange}
                                                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-opacity-50 outline-none transition-all bg-gray-50 focus:bg-white h-32 resize-none"
-                                                    placeholder="Tell us about your needs..."
+                                                    placeholder={offerAccepted ? "I'm interested in the priority consultation..." : "Tell us about your needs..."}
                                                 />
                                             </div>
                                             <button
