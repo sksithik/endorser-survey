@@ -93,14 +93,27 @@ export default function TeleprompterPage() {
 
       if (!audioData.success) {
         console.warn('Audio enhancement failed, proceeding with video only', audioData.message);
-        // We warn but don't crash, or we could crash if strict. 
-        // For now, let's treat it as a "soft" failure and keep the video.
       } else {
         console.log('Audio enhanced:', audioData.url);
       }
 
-      // 4. Finalizing
+      // 4. Transcription (AssemblyAI)
       setProcessingStep(3);
+      const transcriptRes = await fetch('/api/transcription/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      const transcriptData = await transcriptRes.json();
+
+      if (!transcriptData.success) {
+        console.warn('Transcription failed', transcriptData.message);
+      } else {
+        console.log('Transcription complete');
+      }
+
+      // 5. Finalizing
+      setProcessingStep(4);
       setIsProcessing(false);
 
     } catch (e: any) {
@@ -432,19 +445,30 @@ export default function TeleprompterPage() {
                         </div>
                       </div>
 
-                      {/* Step 3: Finalizing */}
+                      {/* Step 3: Transcription */}
                       <div className="flex items-center gap-3">
-                        <div className={`h-8 w-8 rounded-full flex items-center justify-center border ${processingStep >= 3 ? 'bg-green-600 border-green-600' : 'border-white/20'}`}>
-                          {processingStep === 3 ? '✓' : '3'}
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center border ${processingStep >= 3 ? 'bg-blue-600 border-blue-600' : 'border-white/20'}`}>
+                          {processingStep > 3 ? '✓' : '3'}
                         </div>
                         <div className={`text-left ${processingStep === 3 ? 'text-white font-semibold' : 'text-white/50'}`}>
+                          <p>Transcription (AssemblyAI)</p>
+                          {processingStep === 3 && <p className="text-xs text-blue-400">Generating transcript...</p>}
+                        </div>
+                      </div>
+
+                      {/* Step 4: Finalizing */}
+                      <div className="flex items-center gap-3">
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center border ${processingStep >= 4 ? 'bg-green-600 border-green-600' : 'border-white/20'}`}>
+                          {processingStep === 4 ? '✓' : '4'}
+                        </div>
+                        <div className={`text-left ${processingStep === 4 ? 'text-white font-semibold' : 'text-white/50'}`}>
                           <p>Finalizing</p>
                         </div>
                       </div>
                     </div>
 
                     <div className="w-full max-w-md mx-auto bg-gray-700 rounded-full h-2.5 mb-4 overflow-hidden">
-                      <div className="bg-blue-600 h-2.5 rounded-full animate-progress-indeterminate" style={{ width: '50%' }}></div>
+                      <div className="bg-blue-600 h-2.5 rounded-full animate-progress-indeterminate" style={{ width: processingStep === 1 ? '30%' : processingStep === 2 ? '60%' : '90%' }}></div>
                     </div>
                     <p className="text-xs text-white/40">This usually takes 1-2 minutes.</p>
                   </div>
@@ -506,6 +530,6 @@ export default function TeleprompterPage() {
           animation: pulse-fade 1.5s infinite;
         }
       `}</style>
-    </div>
+    </div >
   )
 }
