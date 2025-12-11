@@ -38,13 +38,16 @@ export default function TeleprompterPage() {
 
   // Processing State
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState(0); // 0: Idle, 1: Submagic, 2: Adobe, 3: Completed
   const [finalVideoUrl, setFinalVideoUrl] = useState('');
 
   const startProcessing = async () => {
     if (!token) return;
     setIsProcessing(true);
+    setProcessingStep(1); // Start Submagic
+
     try {
-      // 1. Trigger Processing
+      // 1. Trigger Processing (Submagic)
       const res = await fetch('/api/video/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,35 +56,58 @@ export default function TeleprompterPage() {
       const data = await res.json();
 
       if (!data.success || !data.projectId) {
-        throw new Error(data.message || 'Failed to start processing');
+        throw new Error(data.message || 'Failed to start video processing');
       }
 
       const projectId = data.projectId;
 
-      // 2. Poll for status
-      const pollInterval = setInterval(async () => {
-        try {
-          const statusRes = await fetch(`/api/video/status?id=${projectId}&token=${token}`);
-          const statusData = await statusRes.json();
+      // 2. Poll for Submagic status
+      await new Promise<void>((resolve, reject) => {
+        const pollInterval = setInterval(async () => {
+          try {
+            const statusRes = await fetch(`/api/video/status?id=${projectId}&token=${token}`);
+            const statusData = await statusRes.json();
 
-          if (statusData.status === 'completed' && statusData.url) {
-            clearInterval(pollInterval);
-            setFinalVideoUrl(statusData.url);
-            setIsProcessing(false);
-          } else if (statusData.status === 'failed') {
-            clearInterval(pollInterval);
-            setIsProcessing(false);
-            alert('Video processing failed. Please try again.');
+            if (statusData.status === 'completed' && statusData.url) {
+              clearInterval(pollInterval);
+              setFinalVideoUrl(statusData.url); // Use Submagic result as base
+              resolve();
+            } else if (statusData.status === 'failed') {
+              clearInterval(pollInterval);
+              reject(new Error('Submagic processing failed'));
+            }
+          } catch (e) {
+            console.error('Polling error', e);
           }
-        } catch (e) {
-          console.error('Polling error', e);
-        }
-      }, 5000); // Poll every 5 seconds
+        }, 5000);
+      });
+
+      // 3. Start Audio Enhancement (Adobe)
+      setProcessingStep(2);
+      const audioRes = await fetch('/api/audio/enhance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      const audioData = await audioRes.json();
+
+      if (!audioData.success) {
+        console.warn('Audio enhancement failed, proceeding with video only', audioData.message);
+        // We warn but don't crash, or we could crash if strict. 
+        // For now, let's treat it as a "soft" failure and keep the video.
+      } else {
+        console.log('Audio enhanced:', audioData.url);
+      }
+
+      // 4. Finalizing
+      setProcessingStep(3);
+      setIsProcessing(false);
 
     } catch (e: any) {
       console.error(e);
       alert(`Processing failed: ${e.message}`);
       setIsProcessing(false);
+      setProcessingStep(0);
     }
   };
 
@@ -382,9 +408,43 @@ export default function TeleprompterPage() {
                 ) : isProcessing ? (
                   <div className="text-center py-8">
                     <h3 className="text-xl font-semibold mb-3">AI Magic in Progress...</h3>
-                    <p className="text-white/60 mb-4">We are removing fillers, fixing eye contact, and adding polish.</p>
-                    <div className="w-full max-w-md mx-auto bg-gray-700 rounded-full h-2.5 mb-4">
-                      <div className="bg-blue-600 h-2.5 rounded-full animate-pulse" style={{ width: '100%' }}></div>
+                    <div className="flex flex-col gap-4 max-w-md mx-auto mb-6">
+
+                      {/* Step 1: Video Polish */}
+                      <div className="flex items-center gap-3">
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center border ${processingStep >= 1 ? 'bg-blue-600 border-blue-600' : 'border-white/20'}`}>
+                          {processingStep > 1 ? '✓' : '1'}
+                        </div>
+                        <div className={`text-left ${processingStep === 1 ? 'text-white font-semibold' : 'text-white/50'}`}>
+                          <p>Video Polish (Submagic)</p>
+                          {processingStep === 1 && <p className="text-xs text-blue-400">Removing fillers, fixing eye contact...</p>}
+                        </div>
+                      </div>
+
+                      {/* Step 2: Audio Enhancement */}
+                      <div className="flex items-center gap-3">
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center border ${processingStep >= 2 ? 'bg-blue-600 border-blue-600' : 'border-white/20'}`}>
+                          {processingStep > 2 ? '✓' : '2'}
+                        </div>
+                        <div className={`text-left ${processingStep === 2 ? 'text-white font-semibold' : 'text-white/50'}`}>
+                          <p>Audio Enhancement (Adobe)</p>
+                          {processingStep === 2 && <p className="text-xs text-blue-400">Studio-quality voice processing...</p>}
+                        </div>
+                      </div>
+
+                      {/* Step 3: Finalizing */}
+                      <div className="flex items-center gap-3">
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center border ${processingStep >= 3 ? 'bg-green-600 border-green-600' : 'border-white/20'}`}>
+                          {processingStep === 3 ? '✓' : '3'}
+                        </div>
+                        <div className={`text-left ${processingStep === 3 ? 'text-white font-semibold' : 'text-white/50'}`}>
+                          <p>Finalizing</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="w-full max-w-md mx-auto bg-gray-700 rounded-full h-2.5 mb-4 overflow-hidden">
+                      <div className="bg-blue-600 h-2.5 rounded-full animate-progress-indeterminate" style={{ width: '50%' }}></div>
                     </div>
                     <p className="text-xs text-white/40">This usually takes 1-2 minutes.</p>
                   </div>
@@ -399,7 +459,7 @@ export default function TeleprompterPage() {
                           ✨ Enhance with AI
                         </button>
                       )}
-                      <button className="btn-secondary btn" onClick={() => { setVideoBlobUrl(''); setFinalVideoUrl(''); }}>Re-record</button>
+                      <button className="btn-secondary btn" onClick={() => { setVideoBlobUrl(''); setFinalVideoUrl(''); setProcessingStep(0); }}>Re-record</button>
                       <Link href={`/share?token=${token}`} className="btn">Next</Link>
                     </div>
                   </div>

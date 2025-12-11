@@ -1,10 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase Admin Client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+import { supabase } from '@/lib/supabaseClient';
 
 export async function POST(request: Request) {
     const { token, reviewText } = await request.json();
@@ -14,7 +9,7 @@ export async function POST(request: Request) {
     }
 
     try {
-        const { error } = await supabaseAdmin
+        const { error } = await supabase
             .from('endorser_invite_sessions')
             .update({ ai_generated_review: reviewText })
             .eq('id', token);
